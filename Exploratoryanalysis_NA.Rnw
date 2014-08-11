@@ -1,0 +1,1967 @@
+%----------------------------------------------------------
+%OPERATING MODEL
+%Exploratory data analysis
+
+%Nekane Alzorriz
+%January 2014
+
+%----------------------------------------------------------
+\documentclass[a4paper]{report}
+%----------------------------------------------------------
+
+%Font
+\usepackage[sc]{mathpazo}
+\usepackage[T1]{fontenc}
+%Set pageout
+\usepackage{geometry}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+% Enter URLs like this: \url{http://www.stack.nl/~jwk/latex/}
+\usepackage{url}
+% Create hyperlinks within the document
+\usepackage[unicode=true,pdfusetitle, bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2, breaklinks=false,
+pdfborder={0 0 1},backref=false,colorlinks=false]{hyperref}
+\hypersetup{pdfstartview={XYZ null null 1}}
+%\usepackage{breakurl}
+%\usepackage{hyperref}
+% Place floats within the section
+\usepackage[section]{placeins}
+\usepackage{tabularx}
+\usepackage{tabulary}
+\usepackage{adjustbox}
+\usepackage{array}
+\newcolumntype{L}{>{\arraybackslash}m{3cm}}
+% Line space
+\usepackage{setspace}
+\onehalfspacing
+% Caption and figure def
+% Check http://en.wikibooks.org/wiki/LaTeX/Floats,_Figures_and_Captions for more info
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{wrapfig}
+% For specifying the counter style of enumerate
+\usepackage{enumerate}
+% Bibliography
+%\usepackage[style=numeric,firstinits=true]{biblatex}
+% Specify bib files
+\usepackage[square,sort]{natbib}
+\bibliographystyle{plainnat}
+%To generate a full horizontal page 
+\usepackage{fullpage}
+\usepackage{pdflscape}
+%\usepackage[sort&compress,square,comma,authoryear]{natbib}
+
+%----------------------------------------------------------
+\begin{document}
+%----------------------------------------------------------
+
+<<setup, include=FALSE, cache=FALSE,results='hide', message=FALSE, warning=FALSE>>=
+library(knitr)
+library(FLCore)
+library(r4ss)
+library(plyr)
+library(reshape)
+#library(FLa4a)
+library(devtools)
+library(ggplotFL)
+library(stargazer)
+#----------------------------------------------------------
+# set global chunk options
+opts_chunk$set(fig.path='figures/OM-', fig.align='center', fig.show='hold')
+opts_chunk$set(dev = "pdf", cache = TRUE, fig.width = 5.5,fig.height = 3.0, tidy = TRUE)
+opts_chunk$set(message=FALSE, warning=FALSE, cache=TRUE)
+options(replace.assign=TRUE,width=90)
+options(scipen = 1, digits = 2) #control digits to two
+opts_knit$set(stop_on_error=2L)
+knit_hooks$set(crop = hook_pdfcrop)
+@
+
+<<multiplot, include=FALSE, cache=FALSE,results='hide', message=FALSE, warning=FALSE>>=
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+@
+
+%------------------------------------------------------------
+\title{Exploratory data analysis of the Bay of Biscay operating model}
+%------------------------------------------------------------
+
+\author{N. Alzorriz, E. Jardim, I. Mosqueira and G.C. Osio\\
+  European Commission \- Joint Research Center \\
+  Institute Protection and Security of the Citizen (IPSC)\\
+  Maritime Affairs Unit\\
+  Ispra (VA), Italy}
+\date{\today}
+\maketitle
+
+<<"data_2012", echo=FALSE , results='hide'>>=
+ load("~/Documents/BoB/BoB_data/data/BoB_catch_2012.RData")
+# stargazer(catch_2012,type="latex",summary=FALSE, column.labels = c("Landings","% weight", "Discards", "% weight"),digits=2)
+ @
+
+%----------------------------------------------------------
+\chapter{Background}
+%----------------------------------------------------------
+The recent agreement on the reform of the Common Fisheries Policy (CFP) cements the obligation to land all catches into EU law [Regulation, EU No 1380/\citeyear{EC2013}]. This "landing obligation" attempts to end the practice of discarding at sea and will be introduced progressively, starting from 1 January 2015. The introduction of a discard ban should in theory facilitate the application of the Ecosystem Approach to Fisheries: all fish removed from the ecosystem is being landed and accounted for, and the total amount can be constrained by species-specific Total Allowable Catches (TACs) \citep{Kindt-Larsen2011}. This implies that vessels must ideally have adequate quotas for all species covered by the ban that they are likely to catch during the course of their operations. For mixed fisheries there is a potential mismatch between the current allocated TACs and the actual catch distribution, so once one or more quota for some stocks are exhausted, the fisheries would need to be restricted or closed, even if quotas were still available for other species.
+
+To evaluate the consequences and risks associated with alternative implementations of a policy limiting or eliminating discards at sea in a mixed fishery, we will use Management Strategy Evaluation (MSE). In such modelling framework, advice and management systems can be quantitatively evaluated through simulation testing \citep{Kell2007,Dichmont2013}. This involves creating simulation models that best represent both current knowledge and uncertainty on the dynamics of fish stocks under fishing pressure, the effect on fishers of variations in stock status and availability, and their responses to those changes and those in management regimes. A set of operating models (OMs) will be built using the tools provided by the FLR framework (Fisheries Library in R, \url{http://www.flr-project.org}, \citep{Kell2007}). Individual models of the biology of the various stocks will be coupled with those representing the fleets operating on them.
+
+We will carry out these analyses using a case study mixed fishery, the demersal and pelagic fishery on the Bay of Biscay (BoB), and more specifically one of it component fleets, the Basque otter trawl fleet (OBT), for which detailed data on landings, discard estimates, and economic variables, is assembled in this document.
+
+%----------------------------------------------------------
+\chapter{Description of the fisheries: BoB case study}
+%----------------------------------------------------------
+The case study focuses on the Basque otter trawl operating in ICES divisions VIIIabd and VII in the Bay of Biscay. It is a mixed fishery, characterized by a complex and variable catch composition, as it exploits a high variety of species, and presents important seasonal differences in terms of target species and major by-catch species. The Northern Iberian Region is also an important nursery ground for some of them, mainly hake, sardine, horse mackerel, and blue whiting.
+\\
+The Basque trawl fleet has experienced major changes over the years, but presently it is formed mainly by ``baka'' otter board trawlers and very high vertical opening (VHVO) pair bottom trawlers \citep{Iriondo2008}. The fleet increased in capacity until the late 1970s, with a total of 216 fishing units, but it has nowadays been significantly reduced \citep{Prellezo2010}. A total of 27 vessels are now part of the Basque demersal fleet, with an average length of 37 metres and 9 years of age. Most of these vessels make trips of 6-7 days at sea, and then land the catches in Basque ports. However, there has been an increase in landings in foreign ports (Ireland, Scotland, England and France) in recent years: most of these landings are transferred by trucks to the Basque country and are sold mainly in local markets, although certain species are sold in French ports \citep{Iriondo2008}.
+\\
+The main target species for this fishery are Hake (HKE), Anglerfish (MON \& ANK) and Megrims (MEG). To these we must add some seasonal target species, such as Red mullets (MUR), Squids (SQZ), Pouts (BIB), Sole (SOL), Horse mackerel (HOM), Skate and Rays (SKA \& RAY), Conger (COE), Catshark (SCY) and Mackerel (MAC). During the last decade, the Basque trawling fleet has landed an average of 13,000 tonnes a year of fish, of more than 100 species.
+\\
+The practice of discarding in this fishery reaches levels of up to 40\% of the total catch in weight. The main discarded species are non-commercial species, species with low market price or those with exhausted quota. During 2011, for example, discard rates increased up to the 68\%, possibly due to an increase of mackerel discarding. The main species discarded by this fleet, which together account for over 80\% of the total discards in weight, are horse mackerel (HOM), mackerel (MAC), catshark (SYC) and, in a smaller percentage hake (HKE), blue whiting (WHB), gurnard (GUG) and dragonet (LYY). There are a large number of other species that represent a smaller percentage of discarding (including invertebrates). The total weights for the catch in 2012, by landings and discards species, are summarized in Table ~\ref{t:catchdata2012}, for those species with higher presence.   
+%the total landings for the Bottom trawl fishery in 2012 were \Sexpr{tot_landings/1000} tonnes, while using raising discard methods, the total discards reached up to \Sexpr{tot_discards/1000} tonnes.
+
+\begin{table}[h]
+      \centering
+      \caption{Landings and discards species weight composition for the Basque trawl fleet in 2012.}
+      \label{t:catchdata2012}
+\begin{tabular}{@{\extracolsep{5pt}} ccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Species & Total weight landed (t) & Total weight discarded  \\ 
+\hline \\[-1.8ex] 
+HKE & 5919.6 & 354.5 \\ 
+SQZ & 788.6 & -\\ 
+CTL & 490.6 & -\\ 
+MEG & 351.3 & 0.5\\ 
+MON & 345.9 & 4.4\\ 
+ANK & 301.6 & 2.5\\ 
+SYC & 279.9 & 624.6 \\ 
+GAD & 229.5 & 18.9 \\ 
+HOM & 226.6 & 2043.83 \\ 
+MUR & 199.8 & 0.1 \\ 
+MAC & 72.9 & 1815.8 \\
+WHB & 48.4 & 363.9\\
+HMM & 3.7 & 403.1\\
+JEL & - & 1733.7\\
+LYY & - &321.5\\
+Others & 13.98 &  11.64 \\ 
+\hline \\[-1.8ex] 
+\normalsize 
+\end{tabular} 
+\end{table} 
+
+%Based on the total cacth for the Basque trawl fishery in 2012, the discard ratios are summarized in Table ~\ref{t:discardratio2012}.
+
+% \begin{table}[h] \centering 
+%   \caption{Discard ratios for the Basque trawl fleet in 2012.}
+%       \label{t:discardratio2012}
+% \begin{tabular}{@{\extracolsep{5pt}} cccc} 
+% \\[-1.8ex]\hline 
+% \hline \\[-1.8ex] 
+% Specie & Discard rate (\%) & Specie & Discard rate (\%)\\ 
+% \hline \\[-1.8ex] 
+% SBA & 99.58 &OMZ & 9.02\\ 
+% HMM & 99.09 &ARY & 7.99\\ 
+% MAS & 99.00 &GAD & 7.60\\ 
+% CRE & 97.75 &SBG & 6.37\\ 
+% MAC & 96.75 &HKE & 5.65\\ 
+% PAC & 95.24 &RJN & 5.38\\ 
+% POK & 93.98 &YYY & 5.36\\ 
+% HOM & 91.08 &JOD & 3.77\\ 
+% WHB & 88.25 &OMZ & 2.79\\ 
+% RPG & 87.18 &RJC & 1.83\\ 
+% NEP & 84.70 &LDB & 1.38\\ 
+% MUL & 75.58 &MON & 1.26\\ 
+% CBC & 72.19 &BRF & 1.01\\ 
+% SYC & 71.93 &ANK & 0.83\\ 
+% WEG & 62.51 &GUX & 0.45\\ 
+% BIB & 49.15 &COE & 0.33\\ 
+% SKA & 22.16 &MEG & 0.15\\ 
+% UCA & 20.91 &MUR & 0.07\\ 
+% GFB & 16.79 & &\\ 
+% \hline \\[-1.8ex] 
+% \normalsize  
+% \end{tabular} 
+% \end{table} 
+
+This report focuses on six different stocks that have been considered to characterize the Basque trawl mixed fishery: \textbf{Mackerel} (MAC), \textbf{Western Horse Mackerel} (HOM), \textbf{Blue Whiting} (WHB), \textbf{Megrim} (MEG), \textbf{Anglerfish} (MON and ANK) and \textbf{Northern Hake} (HKE). They represent the 68.4\% of the total landings, are managed under total allowable catch (TAC) constrains and, in some cases, show evidence of high discard rates. They are thus most likely to be affected by the upcoming regulation on landing obligations.
+
+
+%----------------------------------------------------------
+\chapter{Data sources}
+%----------------------------------------------------------
+The main data sources available for constructing the various OMs are those assembled for the stock assessments conducted by the various ICES Working Groups tasked with the provision of advice on the status of these stocks. Table ~\ref{t:WG data} summarizes the available data sources compiled for this report. 
+
+\begin{table}[h] \centering 
+  \caption{Working Groups' data for the selected stocks for the Basque fleet OM.}
+      \label{t:WG data}
+\begin{tabular}{@{\extracolsep{5pt}} ccccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock & ICES Working Group & Last Advice & Period covered& Reference\\ 
+\hline \\[-1.8ex] 
+MAC & WGWIDE &2013 &1982-2012 &\citep{WGWIDE2013}\\ 
+HOM & WGWIDE &2013 &1982-2012 &\citep{WGWIDE2013}\\ 
+WHB & WGWIDE &2013 &1981-2012 &\citep{WGWIDE2013}\\ 
+MEG & WGHMM &2006 &1984-2005 &\citep{WGHMM2006}\\ 
+MON \& ANK & WGHMM &2006 &1980-2005 &\citep{WGHMM2006}\\ 
+HKE & WGHMM &2011 &1978-2012 &\citep{WGHMM2013}\\ 
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table} 
+
+In this section, the data used directly when building and conditioning the OMs are outlined. They include:
+\begin{itemize}
+\item Commercial catch data
+\begin{enumerate}
+\item Total catch
+\item Catch in number at-age
+\item Catch weight-at-age
+\end{enumerate}
+\item Biological data
+\begin{enumerate}
+\item Stock weight-at-age
+\item Maturity ogive (proportion mature-at-age)
+\item Natural mortality and proportion of F and M
+\item Weighting of spawning components
+\end{enumerate}
+\item Survey data
+\begin{enumerate}
+\item Index values (CPUE, SSB estimate from egg surveys)
+\end{enumerate}
+\end{itemize}
+
+The majority of these OMs assume that there are no discards for these stocks, because no age-dissagregated data on discards were available. 
+
+Therefore, catches are considered as in the stock assessments (equal to landings). Although when the working groups were not using discards and landings data because estimations were not representative of the total fishery, the slots discards(stock) and landings(stock) habe been filled in the OM in order to compare the computacion between them (compute catch) to the catch used in the stock assessment (report catch).
+
+%------------------------------------------------------------
+\chapter {Data exploration}
+%------------------------------------------------------------
+This section provides a summary exploration of the data available for constructiong OMs for the BoB stocks under study.
+
+%------------------------------------------------------------
+\section{Mackerel}
+%------------------------------------------------------------
+The Northeast Atlantic mackerel is present in the area extending from the Iberian peninsula in the South to the Norwegian Sea in the North, and from Iceland in the West to the Western Baltic Sea in East. Spawning occurs widely on the continental shelf between the BoB and the Norwegian Sea, with two areas of higher spawning intensity. One of them is in the Spanish and Portuguese coasts, along the shelf break, where spawning peaks in March, continuing norwthwards to that between Ireland and the West of Scotland, where spawning concentrates around June \citep{BeareandReid2002}. The other important area is in the central North Sea, peaking in between May and July. Only the the North Sea stock is sufficiently different to be considered as a separate spawning component, since the egg distributions of the South and West areas overlap in the Bay of Biscay.
+
+A summary of the NEA mackerel stock and its fisheries is presented in Table ~\ref{t:MAC SA}.
+
+%  model used by the working group
+\begin{table}[h] \centering 
+  \caption{Mackerel Stock}
+      \label{t:MAC SA}
+\begin{tabular}{@{\extracolsep{5pt}} ll} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock name & Northeast Atlantic Mackerel (MAC) \\ 
+ICES Areas &  I, II, III, IV, V, VI, VII, VIIIa-d, VIIIc and IXa\\ 
+Fleet Composition & Freezer trawlers, Purse Seiners,\\
+& Pelagic trawlers, Lines and Jigging and Gillnets \\
+\hline \\[-1.8ex] 
+Assessment model(by WG) & Integrated catch-at-age model (ICA) \\
+Chaired by & David Miller \\
+Last benchmark & 2007 \\
+Missing data & Discards age-disaggregation; \\
+& Procedure to convert the catch at age (cohort of 0 from 1972-1979) \\
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table}
+
+<<"data", echo=FALSE , results='hide'>>=
+load("~/Documents/BoB/MSE/OM/data/Mackerel/MAC.stock.RData")
+load("~/Documents/BoB/MSE/OM/data/Mackerel/MAC.idx.RData")
+load("~/Documents/BoB/MSE/OM/data/Mackerel/MAC.SAoutput.RData")
+stk<-MAC.stk
+idx<-MAC.idx
+out<- MAC.SA_Biomass
+@
+
+%------------------------------------------------------------
+\subsection{Catch trend}
+%------------------------------------------------------------
+The total catch trend as estimated by the ICES Working Group is shown in Figure ~\ref{f:catch trend Mackerel}. In the 1960s the stock was over-fishing, dropping down the catches until the 1970s. Since late 80s, different management plans and national measures were put in some of the countries in order to reduce fishing mortality and increase biomass. In the contrary, catches have shown a substantially increased  from 2006-2010. In most cases, catch information comes from official logbook records and other sources include catch processors. 
+%Spanish data is based on the official data supplied by the Fisheries General Secretary (SGP) but supplemented by scientific estimates which are recorded as unallocated catch in the WG estimates. 
+
+\begin{figure}[hbt]
+\centering
+<<"MAC1", echo=FALSE,crop=TRUE>>=
+ggplot(data = catch(stk), aes(year, data)) + geom_point() +  geom_line() + geom_smooth(method = "loess", size = 0.5) + ylab("Catch (t)") + xlab("")  
+@
+\caption{Catch trend for Mackerel.}
+\label{f:catch trend Mackerel}
+\end{figure}
+
+Estimates of the unaccounted fishing mortality in the NEA mackerel fisheries suggest that, on average, total catch related removals are equal to between 1.6 and 3.4 times the catch. The variation could be due to:
+\begin{itemize}
+\item Fish that escape from fishing, but die, such as those that pass through the meshes and die.
+\item Discards, slippage and high-grading not included in the ICA assessment
+\item Unreported catch throughout the time-series (Simmonds 2007; ICES 2008a).
+\end{itemize}
+% The Working Group considers that catches are underestimated by an unknown proportion, which is likely to have varied throughout the whole time series (ICES CM 2013/SSGESST:18).The estimates of catch are likely to be an underestimate for the following reasons:
+% \begin{itemize}
+% \item Estimates of discarding or slipping are either not available or incomplete for most countries. Anecdotal evidence suggests that discarding and slipping can occur for a number of reasons including high-grading, lack of quota, storage or processing capacity and when mackerel is taken as by-catch (ICES CM 2013/SSGESST:18).
+% \item Recent work (Simmonds et al. 2010) has indicated considerable uncertainty in true catch figures for the period studied.
+% Estimates of the magnitude and precision of unaccounted mortality suggests that, on average for the period prior to 2007, total catch related removals were equivalent to 1.7 to 3.6 times the reported catch (Simmonds et al. 2010).
+% \item Reliance on logbook data from EU countries implies (even with 100\% compliance) a precision of recorded landings of 89\% from 2004 and 82\% previous to this (Council Regulation (EC) Nos. 2807/83 \& 2287/2003). Without information on the percentage of the landings inspected it is not possible for the Working Group to evaluate the underestimate in its figures due to this technicality. EU landings represent about 65\% of the total estimated NEA mackerel catch. The accuracy of logbooks from countries outside the EU has not been evaluated by WGWIDE.
+% Given that over reporting of mackerel landings is unlikely for economic reasons, the WG considers that, where based on logbook figures, the reported landings may be an underestimate of up to 18\% (11\% from 2004). Where inspections were not carried out there is a possibility of a 56\% under reporting, without there being an obvious illegal record in the logsheets.
+% \item The Working Group considers the estimates of the discards are incomplete.
+% \end{itemize}
+Catches, landings and discards are shown in Figure~\ref{f:landings and discards for Mackerel}. The catches reported in the assessment are the sum of landings and the available discards available in the assessment report (report and computed catches are equal). Some of the countries provide information on discards from observer programs, logbooks and compliance reports. Although in several countries discarding is illegal. There is not discard age-disaggregated data in the assessment report, although data available in the latest report of the Working Group indicate that majority of discarded fish from Portugal and Spain were age 0 or 1 (areas VIII and IX). Indeed in area VII, the discarded catch consisted of a wider range of ages, although the vast majority of the discarded catch was age 6 or younger. In general, discarding of small mackerel has historically been a major problem in this fishery. In the years prior to 1994 there was evidence of large discarded catch of small mackerel in some fisheries (IIa and IV), mainly because of the very high prices paid for larger mackerel for the Japanese market.The level of discards is influenced by the market price and by quotas (e.g. mackerel is taken as by-catch in some of the horse mackerel directed fisheries, suggesting that discarding may be significant because of the low mackerel quota relative to the high horse mackerel quota).
+
+<<"dataMAC", echo=FALSE>>=
+land <-FLQuant(dimnames = list(age = 'all', year = 1972:2012, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(landings(stk))
+land[, as.character(qq$year),1]<-as.matrix(qq[,7])
+
+disc <-FLQuant(dimnames = list(age = 'all', year = 1972:2012, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(discards(stk))
+disc[, as.character(qq$year),1]<-as.matrix(qq[,7])
+@
+
+
+\begin{figure}[hbt]
+\centering
+<<"MAC2", echo=FALSE, crop=TRUE,fig.width = 8, fig.height = 4.5  >>=
+#where unit 1 is for the conditioning data and 2 for the reported one
+ggplot(data = FLQuants(Catches= catch_tot,Landings = land, Discards = disc), aes(year, data,group=unit)) +  geom_line(aes(colour = unit))+facet_wrap(~qname)+ geom_smooth(method = "loess", size = 0.5)+ labs(x = "", y = "t") +scale_colour_discrete(name="Data",breaks=c("1", "2"),labels=c("Report", "Computed"))
+# 
+# ggplot(data = FLQuants(Catches= catch_tot,Landings = land, Discards = disc), aes(year, data,group=unit,colour=unit)) +geom_line(aes(year,data = aes(group = 1), lwd = 1,colour='black'))+geom_line(aes(year,data = aes(group = 2), lwd = 0.5,colour='red'))+geom_path(alpha = 0.5) +facet_wrap(~qname)+ geom_smooth(method = "loess", size = 0.5)+ labs(x = "", y = "") 
+# 
+# +geom_line(mapping = aes(group = 1), lwd = 1.3,colour='black')+geom_line(mapping = aes(group = 2), lty = "dashed",lwd = 0.7,colour='red')
+ @
+\caption{Catches, landings and discards trends for Mackerel}
+\label{f:landings and discards for Mackerel}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Catch at age} 
+%------------------------------------------------------------
+Cath proportions at age are given in Figure ~\ref{f:catch at age Mackerel} and Figure ~\ref{f:catch year classes Mackerel} shows the age disaggraggated catch for Mackerel. Almost 70\% of the catch in numbers consists of 4-7 year olds. 1971 year classes, shown an incomprensibe increase at age 7 after being fully selected. Indeed, the catch-at-age matrix is incomplete, the lower triangle is missing, which we assume means the catch-at-age was generated from total catches for those early years. As in 2011, the 2006 year classes is the most populous in the catch. 
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MAC3", echo=FALSE>>=
+ggplot(data=(catch.n(stk)%/%quantSums(catch.n(stk))),aes(year,factor(age),size=data)) +geom_point(shape=21) +scale_size(range=c(1,10)) + ylab("age") +xlab("")+ theme(legend.position="none") 
+ @
+\end{center}
+\caption{Catch proportion at age for Mackerel.}
+\label{f:catch at age Mackerel}
+\end{figure}
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MAC4", echo=FALSE,crop=TRUE, fig.width = 8, fig.height = 5.5>>=
+ggplot(data =log(catch.n(stk)), aes(age, data)) + geom_line()+ xlab("age")+ ylab("log catch (numbers)")+facet_wrap(~year)  #+scale_x_continuous(breaks = round(0, 12, by = 2),1))
+ @
+\end{center}
+\caption{Age disaggregated catch (numbers) for Mackerel plotted on log scale. The labels behind each panel indicate year classes}
+\label{f:catch year classes Mackerel}
+\end{figure}
+
+The mean weight at age for the total catch used in the stock assessment is given in Figure ~\ref{f:Weight at age Mackerel}. It appears to be a trend emerging towards lighter weights-at-age for the older age classes. Changes in weight-at-age are consistent with the changes that the ICES working group noted in length.
+\FloatBarrier
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MAC5",echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 3.5>>=
+p1<-ggplot(data =catch.wt(stk), aes(year, data, group=age)) + geom_line(aes(colour=age))+ xlab("")+ ylab("W") + theme(legend.position="none") 
+p2<-ggplot(data =stock.wt(stk), aes(year, data, group=age)) + geom_line(aes(colour=age))+ xlab("")+ ylab("W") + theme(legend.position="none") 
+multiplot(p1,p2,cols=2)
+ @
+\end{center}
+\caption{Mean weight at age in the catch (left panel) and in the stock (right panel) of Mackerel by year.}
+\label{f:Weight at age Mackerel}
+\end{figure}
+
+%------------------------------------------------------------
+\subsection{Stock at age} 
+%------------------------------------------------------------
+
+% The weights-at-age in the stock are calculated as the average of the weights-at-age in the three spawning components of the stock, weighted by the relative size of each component, as estimated by the 2013 egg survey for the southern and western components and the 2011 egg survey for the North Sea component. Mean weights-at-age for the western component are estimated from Dutch commercial catch data collected in Division VIIj,h and VIIIa over the period March to May 2011, areas and period which correspond to the spawning distribution of mackerel. Over the recent period, the fishing fleet reduced is activity in this area in that time of the year and the number of fish sampled from the commercial catches has been decreasing. This year, only one sample of 25 fish for the Dutch fleet was available. The commercial catches samples were combined with weights derived from data collected on the 2013 egg survey (666 fish), as stipulated in the stock annex. For the North Sea spawning component, mean weights-at-age were calculated from samples of the commercial catches collected from areas IVa and IVb in the second quarter. Stock weights for the southern component are based on samples from the Portuguese and Spanish catch taken in VIIIc and IXa in the 2nd quarter of the year, combined with weights derived from data collected on the 2013 mackerel egg survey. The weight for age 1 fish since 2008 is the average of the weights-at-age 1 in 2005-2007 due to lack of sample data since 2008, in the western component which dominates the stock.
+The 2012 stock weights-at-age are substantially lower than the 2011 weights-at-age (Figure ~\ref{f:Weight at age Mackerel}). However, except for the year 2011, the general trend among most ages is a decrease in weights-at-age, also observed in the catch weights-at-age.
+% Given this decreasing trend, using 2013 data (egg survey data) to compute the 2012 stock weights-at-age may have accentuated this decrease.
+
+% \begin{figure}[hbt]
+% \begin{center}
+% <<"MAC6", echo=FALSE>>=
+% ggplot(data =stock.wt(stk), aes(year, data, group=age)) + geom_line(aes(colour=age))+ xlab("")+ ylab("W") + theme(legend.position="none") 
+%  @
+% \end{center}
+% \caption{Mean weight at age in the stock (Kg) for Mackerel.}
+% \label{f:stock at age Mackerel}
+% \end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Maturity}
+%------------------------------------------------------------
+The proportion of mature mackerel-at-age for the total stock are calculated as the weighted mean each of the three components (North Sea, Western and Southern components). The weighting is the egg survey based estimate of SSB in the three components. The maturity ogive is thus updated only when there has been an egg survey. The maturity at age is shown in Figure ~\ref{f:Maturity Mackerel}. 
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MAC7",echo=FALSE,crop=TRUE>>=
+ggplot(data =mat(stk), aes(age, data, group=year)) + geom_line(aes(colour=age))+ xlab("")+ ylab("M") + theme(legend.position="none") 
+ @
+\end{center}
+\caption{Maturity ogive for Mackerel.}
+\label{f:Maturity Mackerel}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Mortality}
+%------------------------------------------------------------
+Natural mortality is assumed to be 0.15 for all age groups and constant over time.
+%, in Figure ~\ref{f:Mortality Mackerel}.
+%\begin{figure}[hbt]
+%\begin{center}
+%<<"MAC8",echo=FALSE, crop=TRUE>>=
+%ggplot(data =m(stk), aes(year, data, group=age)) + geom_line(aes(colour=age))+ xlab("")+ ylab("m") + theme(legend.position="none") 
+% @
+%\end{center}
+%\caption{Natural mortality for Mackerel.}
+%\label{f:Mortality Mackerel}
+%\end{figure}
+%\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Abundance indices}
+%------------------------------------------------------------
+
+Every three years, two mackerel egg surveys have been performed since 1977. One survey covers the Western ans Southern spawning area while the other partly covers the spawning area of the North Sea and Skagerrak. They are undertaken to obtain quantitative samples of planktonic eggs produced over the whole spawning period. These data are not age based, implying that the estimation of numbers at age are uncertain and the stock perception has to be revised each time the new survey data are available.
+
+The effort and catch-per-unit-effort from the commercial fleets is only provided for some of them in the Southern area. Figure ~\ref{f:Abundance index Mackerel} shows the combined indices of abundance available for the stock, with their correlations and confidence intervals from the mean. The SSB estimate from the triennial mackerel egg survey is the only index of abundance currently used in the assessment. In relation with the CPUEs, there is a clear drop in the handline fleets since 2011, which could be related with the daily quota established for this fleet in 2011. On the contrary, the trawler fleet from A Coruña shows an increasing trend in its CPUE since 2007.
+
+% Spanish fleet effort figure shows a significant decrease in 2003 due to the catastrophe of the Prestige oil spill. Hand-line fleet effort showed an increasing trend from 1993 to 1998 but since then the effort, excluding the ban due to the Prestige, shows a clear declining trend, more relevant for the Santoña fleet, which could be related with the shift of the mackerel availability period from February-May to January-February. The effort of the Spanish trawler fleet is quite stable. There is clear drop in the handline fleets CPUE since 2011 which could be related with the daily quota established for 2011. On the contrary the trawler fleet from A Coruña shows an increasing trend in its CPUE since 2007.
+
+<<"MAC9a",echo=FALSE,include=FALSE, cache=FALSE,results='hide', message=FALSE, warning=FALSE>>=
+pdf("Mackerelindices.pdf", width=4, height=4)
+n<-length(idx)
+par(mfrow = c(round(n+1/2),2))
+plot(idx)
+dev.off()
+@
+
+\begin{landscape}
+\begin{figure}[h]
+\begin{center}
+<<"MAC9",echo=FALSE,message=FALSE, warning=FALSE, crop=TRUE, fig.width=14, fig.height=9>>=
+#indic<- lapply(idx, function (x) index(x))
+#Standardising the indices
+indic<- lapply(idx, function (x) window(index(x)/mean(index(x),na.rm=TRUE), start=1980))
+
+names(indic)<-unlist(lapply(idx,name))
+names(indic)[1]<-"Triennial survey"
+
+ggplot(data =indic, aes(year, data)) + geom_point()+ geom_line()+ ylab("Abundance") + xlab("") + 
+  facet_grid(qname~.,scales = "free")+geom_smooth()+theme(legend.position="none")
+# out.width='10in',
+@
+\end{center}
+\caption{Abundance indices (SSB estimates) from the triennial mackerel egg survey and CPUEs.}
+\label{f:Abundance index Mackerel}
+\end{figure}
+\end{landscape}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Stock Summary}
+%------------------------------------------------------------
+Results obtained by the working group of the Mackerel assessment are given in Figure ~\ref{f:stock output Mackerel}. 
+This assessment, however, produces an unrealistic estimate of the 2012 recruitment, of about 100 times the historical level of recruitment. The estimates of terminal year recruitment are usually very uncertain - and replaced in the final assessment by a geometric mean - but generally not to such an order of magnitude. The assessment indicates SSB has been decreasing from 3.01 Mt in 2011 to 2.46 Mt in 2012. The mean fishing mortality (Fbar) for ages 4-8 is stable, and estimated at 0.33 in 2012.
+
+%<<>>=
+%#### we don't have a plusgroup so we need to set one with the highest value possible with no 0 (in this case 10)
+%stk@range
+%stk <- setPlusGroup(stk, 12)
+
+%#### let's look how many survey we have in the index
+%lapply(idx, range)
+
+%##### we need to remove year 2013
+%idx<-window(idx, start=1983, end=2012)
+
+%### F model 1 is an intercept and slope for age and year
+%#### we have 5 idx,so we need to make a list of 5 in the qmodel
+%fmodel <- ~factor(age) + factor(year)
+%qmodel <- list(~factor(age), ~factor(age), ~factor(age), ~factor(age), ~factor(age))
+%fit1 <- a4a(fmodel, qmodel, stock=stk, indices=idx)
+
+%stk1 <- stk+fit1
+
+%plot(stk1, main="North Sea Cod - F model = ~factor(age) + factor(year)")
+%#plot(fit1, stk1) # not working in the new version of a4a
+%@
+
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MAC10",echo=FALSE,message=FALSE, warning=FALSE,crop=TRUE,fig.width = 8, fig.height = 7.5>>=
+out[1,c('2012')] <- 4307930
+rec<-out[1,]
+meanf<-out[4,]
+ssb<-window(out[3,],start=1980)
+Totcat<-out[5,]
+p1<-ggplot(data = rec, aes(year, data)) +  geom_line() + ylab("") + xlab("") +ggtitle("Recruitment (Age 0)")
+p2<-ggplot(data = meanf, aes(year, data)) + geom_line() + ylab("") + xlab("") +ggtitle("Fbar (Ages 4-8)")+
+  geom_hline(yintercept = 0.42,linetype = "dashed") + annotate("text", 1972, 0.44, label = "Flim",size = 3)+
+  geom_hline(yintercept = 0.23,linetype = "dashed") + annotate("text", 1972, 0.25, label = "Fpa",size = 3)
+p3<-ggplot(data = ssb, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("SSB")+
+  geom_hline(yintercept = 2300000,linetype = "dashed") + annotate("text", 1972, 2400000, label = "Bpa",size = 3)+
+  geom_hline(yintercept = 1670000,linetype = "dashed") + annotate("text", 1972, 1800000, label = "Blim",size = 3)
+p4<-ggplot(data = Totcat, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("Catch")
+
+multiplot(p1, p2, p3, p4, cols=2)
+@
+\end{center}
+\caption{llustration of stock trends in NE Atlantic Mackerel from the update assessment. Summary of estimates of spawning stock biomass (1980 to 2012), recruitment from 1972-2012, Fbar4-8 from 1977 to 2012 and catches from 1972 to 2012. NB : the 2012 recruitment is not a geometric mean, but the ICA estimate}
+\label{f:stock output Mackerel}
+\end{figure}
+\FloatBarrier
+
+\newpage
+%------------------------------------------------------------
+%------------------------------------------------------------
+\section{Western Horse Mackerel}
+%------------------------------------------------------------
+%------------------------------------------------------------
+For many years, horse mackerel (\emph{Trachurus trachurus}) in the Northeast Atlantic has been separated into three different management units, motivated by the temporal and spatial distribution of the fishery, the observed egg and larval distributions, information from acoustic and trawl surveys, and from parasite infestation rates \citep{ICES2008}. 
+
+The Western horse mackerel stock extends along the Northeast continental shelf of Europe, from the Bay of Biscay in the South to Norway in the North. Spawning ocurrs in the Bay of Biscay, and in British and Irish waters. After spawning, parts of the stock migrate northwards. The EU regulates this fishery by annual TACs.
+
+The main characteristics of the Horse Mackerel stock and its ICES working group are summarized in Table ~\ref{t:HOM SA}.
+%  model used by the working group
+\begin{table}[h] \centering 
+  \caption{Horse Mackerel Stock}
+      \label{t:HOM SA}
+\begin{tabular}{@{\extracolsep{5pt}} ll} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock name & Western Horse Mackerel (HOM) \\ 
+ICES Areas &  IIa, IIIa (Western Part), IVa, Vb, VIa, VIIa-c, VIIe-k and VIIa-e\\ 
+Fleet Composition & Freezer trawlers, Purse Seiners, Mixed trawls\\
+\hline \\[-1.8ex] 
+Assessment model(by WG) & SAD (linked Separable-ADAPT VPA) model \\
+Chaired by & David Miller\\
+Last benchmark & ?\\
+Missing data & Discards age-disaggregation; \\
+& Mean weight at age in the catch\\
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table}
+
+<<"data1", echo=FALSE , results='hide'>>=
+#rm(list=ls())
+load("~/Documents/BoB/MSE/OM/data/Horse Mackerel/HOM.stock.RData")
+load("~/Documents/BoB/MSE/OM/data/Horse Mackerel/HOM.idx.RData")
+load("~/Documents/BoB/MSE/OM/data/Horse Mackerel/HOM.SAoutput.RData")
+stk<-HOM.stk
+idx<-HOM.idx
+out<- HOM.SA_Biomass
+@
+%------------------------------------------------------------
+\subsection{Catch trend}
+%------------------------------------------------------------
+The total catch trend as estimated by the Working Group is shown in Figure ~\ref{f:catch trend Horse Mackerel}. Catches of Western horse mackerel showed an increase in the 1980s. Some changes in the migration pattern were noticed, and a target fishery on horse mackerel was developed in Division IVa following those changes. Since 1996, catches dropped considerably and a variety of fisheries started exploiting this stock:
+\begin{itemize}
+\item Juvenile fish (mid-aged) for the human consumption market (Japanese market)
+\item Older fish either for human consumption purposes (mostly for the African market) or for industrial purposes.
+\end{itemize}
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM1", ref.label="MAC1",echo=FALSE,crop=TRUE>>=  
+@
+\end{center}
+\caption{Catch trend for Horse Mackerel.}
+\label{f:catch trend Horse Mackerel}
+\end{figure}
+
+<<"dataHOM", echo=FALSE,crop=TRUE>>=
+land <-FLQuant(dimnames = list(age = 'all', year = 1982:2012, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(landings(stk))
+land[, as.character(qq$year),1]<-as.matrix(qq[,7])
+
+disc <-FLQuant(dimnames = list(age = 'all', year = 1982:2012, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(discards(stk))
+disc[, as.character(qq$year),1]<-as.matrix(qq[,7])
+@
+
+Catches, landings and discards are shown in Figure~\ref{f:landings and discards for Horse Mackerel}. The amount of discards found in the ICES report are not representative of the total fishery. Discards are just used in the assessment when provided to the working group. When comparing the report catches with the catches computed by the available data, it is noticeable that the working group is allocating some extra catches that could be linked to the discard estimations.
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM2", ref.label="MAC2",echo=FALSE,fig.width = 8, fig.height = 4.5,crop=TRUE >>=
+ @
+\end{center}
+\caption{Landings and discards trends for Horse Mackerel}
+\label{f:landings and discards for Horse Mackerel}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Catch at age} 
+%------------------------------------------------------------
+The catch proportion at age is given in Figure ~\ref{f:catch at age Horse Mackerel}. Catches of Western horse mackerel show an increase in the 1980s with the appearance of the extremely strong 1982-year-class. The figure shows the dominance of both the 1982 and 2001 year classes in the catches until their dissapareance, in 1996 and 2012 respectively.
+
+Since 1998, there has been an increase in age readings compared with previous years, which has improved the quality of the catch at age matrix (Figure ~\ref{f:catch year classes Horse Mackerel} show the age disaggragated catch (numbers)). From 1998 to 2005 the catch peak is presented in ages between 2-3 years, while with the entrance of the 2001 year cleass, this catch peak moves through elder ages.
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM3", ref.label="MAC3",echo=FALSE,crop=TRUE >>=
+ @
+\end{center}
+\caption{Catch proportion at age for Horse Mackerel. Note that age 11 is a plus group.}
+\label{f:catch at age Horse Mackerel}
+\end{figure}
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM4", ref.label="MAC4",echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 5.5 >>=
+ @
+\end{center}
+\caption{Age disaggregated catch (numbers) for Horse Mackerel plotted on log scale. The labels behind each panel indicate year classes}
+\label{f:catch year classes Horse Mackerel}
+\end{figure}
+
+The mean weight at age for the total catch is shown in Figure ~\ref{f:Weight at age Horse Mackerel}.There is not weight at age data available for the catch in the report, although the working group have the data because they have its figure. Since we tried to gather the weight at age data, we have used the 2012 mean weight for all years.
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM5",echo=FALSE,crop=TRUE>>=
+ggplot(data =catch.wt(stk), aes(year, data, group=age)) + geom_line(aes(colour=age))+ xlab("")+ ylab("W") + theme(legend.position="none") 
+ @
+\end{center}
+\caption{Mean weight at age in the catch(Kg) of Horse Mackerel by year.}
+\label{f:Weight at age Horse Mackerel}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Stock at age} 
+%------------------------------------------------------------
+
+The mean weight at age in the stock is based on mature fish sampled from Dutch freezer trawlers. These data present a sesgo in the two years old, because no data  was available from the trawlers for this age. Then the working grop is given a constant weight of 0.085 kg. The mean weight by age groups in the stock and in the catches were lower than usual in 2001, but returned to normal since 2002 (Figure ~\ref{f:stock at age Horse Mackerel}).
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM6", echo=FALSE,crop=TRUE >>=
+ggplot(data =stock.wt(stk), aes(year, data, group=age)) + geom_line(aes(colour=age))+ xlab("")+ ylab("W") + theme(legend.position="none") 
+ @
+\end{center}
+\caption{Mean weight at age in the stock (Kg) for Horse Mackerel.}
+\label{f:stock at age Horse Mackerel}
+\end{figure}
+
+%------------------------------------------------------------
+\subsection{Maturity}
+%------------------------------------------------------------
+The maturity-at-age, as used in the assessment, is presented in Figure ~\ref{f:Maturity Horse Mackerel}. Due to difficulties in estimating a maturity ogive, the same maturity at age has been used since 1998.
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM7",ref.label="MAC7",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Maturity ogive for Horse Mackerel.}
+\label{f:Maturity Horse Mackerel}
+\end{figure}
+
+%------------------------------------------------------------
+\subsection{Mortality}
+%------------------------------------------------------------
+A natural mortality of 0.15 per year is assumed for all ages and years. The working group consider this value uncertain but probably low.
+
+%The natural mortality at age is presented in Figure ~\ref{f:Mortality Horse Mackerel}. 
+%\begin{figure}[hb]
+%\begin{center}
+%<<"HOM8",ref.label="MAC8",echo=FALSE,crop=TRUE>>=
+% @
+%\end{center}
+%\caption{Natural mortality for Horse Mackerel.}
+%\label{f:Mortality Horse Mackerel}
+%\end{figure}
+
+%------------------------------------------------------------
+\subsection{Abundance indices}
+%------------------------------------------------------------
+Fishery-independent data for this stock is scarce, with only a single data point for egg production every three years. In addition, the working group assessment contains a fecundity model which links the egg production to SSB. This model needs to gather knowledge on the spawning biology of this stock for its improvement, since at present is considered an indeterminate spawner.
+
+Egg abundance plot is presented in Figure ~\ref{f:Abundance index Horse Mackerel}. The shape of the egg production curve shows a decreasing trend, and 2013 is presenting one of the lowest estimates of annual egg production ever recorded.
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM9",echo=FALSE,crop=TRUE>>=
+ggplot(data = index(idx), aes(year, data)) + geom_point() +  geom_line() + geom_smooth(method = "loess", size = 0.5) + ylab("Abundance") + xlab("") 
+ @
+\end{center}
+\caption{Abundance index for Horse Mackerel.}
+\label{f:Abundance index Horse Mackerel}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Stock Summary}
+%------------------------------------------------------------
+Results obtained by the working group of the Horse mackerel assessment are given in Figure ~\ref{f:stock output Horse Mackerel}. 2010 recruitment show a really low value. SSB peaked in 1988 following the very strong 1982 year class. Afterwards SSB peaked following the moderate year classes in the 90s and the moderate year class of 2001. Subsequent year classes have been weak. As a result of increasing catches and decreasing biomass as the 2001 year-class is reduced, fishing mortality has been increasing since 2007.
+
+\begin{figure}[hb]
+\begin{center}
+<<"HOM10",echo=FALSE,message=FALSE, warning=FALSE,crop=TRUE,fig.width = 8, fig.height = 7.5>>=
+#out[1,c('2012')] <- 4307930
+rec<-out[1,]
+meanf<-out[8,]
+ssb<-out[2,]
+Totcat<-out[4,]
+p1<-ggplot(data = rec, aes(year, data)) +  geom_line() + ylab("") + xlab("") +ggtitle("Recruitment")
+p2<-ggplot(data = meanf, aes(year, data)) + geom_line() + ylab("") + xlab("") +ggtitle("Fbar (Ages 1-10)")+
+  geom_hline(yintercept = 0.13,linetype = "dashed") + annotate("text", 1982, 0.15, label = "F0.1",size = 3)
+p3<-ggplot(data = ssb, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("SSB")+
+  geom_hline(yintercept = 1800000,linetype = "dashed") + annotate("text", 1982, 2000000, label = "Bpa",size = 3)+
+ geom_hline(yintercept = 1400000,linetype = "dashed") + annotate("text", 1987, 1600000, label = "Blim- MSY trigger",size = 3)
+p4<-ggplot(data = Totcat, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("Catch")
+multiplot(p1, p2, p3, p4, cols=2)
+@
+\end{center}
+\caption{llustration of stock trends in Western Horse Mackerel from the update assessment. SSB and catch are in tons, and recruitment is in thousands. The final SSB estimate assumes the same fishing mortality as in the previous year. Recruitment in 2012 is the geometric mean of the time series excluding 1982}
+\label{f:stock output Horse Mackerel}
+\end{figure}
+\FloatBarrier
+
+\newpage
+%------------------------------------------------------------  
+%------------------------------------------------------------
+\section{Blue Whiting}
+%------------------------------------------------------------
+%------------------------------------------------------------
+Blue whiting (\textit{Micromesistius poutassou}) is a small pelagic gadoid common in the eastern part of the North Atlantic from Morocco to Iceland. The highest concentrations and schools found along the edge of the continental shelf between 300 and 600 meters. The blue whiting grows rapidly during its first year, and reaches maturity at 2 to 7 years old. The adult stock migrates all over the eastern North Atlantic, up to the Barents Sea and even to the Denmark Strait,from the feeding grounds to the spawning grounds. The main spawning grounds are the north and northwest of the British Isles. Most of the spawning takes place between March and April. Upon spawning, the fish migrate northward to feed.
+
+The main characteristics of the Blue Whiting stock and its working group are summarized in Table ~\ref{t:WHB SA}.
+%  model used by the working group
+\begin{table}[h] \centering 
+  \caption{Blue Whiting Stock}
+      \label{t:WHB SA}
+\begin{tabular}{@{\extracolsep{5pt}} ll} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock name &  Blue Whiting (WHB)\\ 
+ICES Areas &  I-IX, XII and XIV\\ 
+Fleet Composition & Large pelagic trawlers and others\\
+& The majority of quotas are landed in the first half of the year\\
+\hline \\[-1.8ex] 
+Assessment model(by WG) &  Age-based analytical (SAM)\\
+Chaired by & David Miller\\
+Last benchmark & February 2012\\
+Missing data & Discards are not included and assumed negligible\\
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table}
+
+<<"data2", echo=FALSE , results='hide'>>=
+#rm(list=ls())
+load("~/Documents/BoB/MSE/OM/data/Blue Whiting/WHB.stock.RData")
+load("~/Documents/BoB/MSE/OM/data/Blue Whiting/WHB.idx.RData")
+load("~/Documents/BoB/MSE/OM/data/Blue Whiting/WHB.SAoutput.RData")
+stk<-WHB.stk
+idx<-WHB.idx
+out<- WHB.SA_Biomass
+@
+
+%------------------------------------------------------------
+\subsection{Catch trend}
+%------------------------------------------------------------
+The total catch trend as estimated by the Working Group is shown in Figure ~\ref{f:catch trend Blue Whiting}. Until 2004 strong year-classes have ocurred, translating into a marked increase in the cathes. Afterwards, the catches decreased to the lowest value recorded ever in 2011.  
+After this minimum in 2011, catches increased in 2012. In general, the spatial and temporal distribution in 2012 is quite similar to the distribution in previous years, coming the majority of catches from the spawning area during the first two quarters. While later in the year catches are mainly taken further north. 
+
+\begin{figure}[h]
+\begin{center}
+<<"WHB1", ref.label="MAC1",echo=FALSE>>=  
+@
+\end{center}
+\caption{Catch trend for Blue Whiting.}
+\label{f:catch trend Blue Whiting}
+\end{figure}
+
+Discards of blue whiting are considered to be small. Most of these discards are by-catch in fisheries not directed to blue whiting. Most of the blue whiting is caught in directed fisheries for reduction purposes. Then discards are not included in the assessment and assumed negligible. Consequently, the working group considers the landings as catches (Figure~\ref{f:landings and discards for Blue Whiting}).
+
+\begin{figure}[h]
+\begin{center}
+<<"WHB2", echo=FALSE,fig.width = 8, crop=TRUE,fig.height = 4.5, tidy = TRUE >>=
+ca<-catch(stk)
+ca[1,]<-NA
+di<-discards(stk)
+di[1,]<-NA
+ggplot(data = FLQuants(Catches= ca,Landings = landings(stk), Discards = di), aes(year, data)) + geom_line() +facet_wrap(~qname)+ geom_smooth(method = "loess", size = 0.5)+ labs(x = "", y = "") 
+
+#ggplot(data = FLQuants(Catches= catch(stk),Landings = landings(stk), Discards = discards(stk)), aes(year, data)) + geom_line() +facet_wrap(~qname)+ geom_smooth(method = "loess", size = 0.5)+ labs(x = "", y = "") 
+ @
+\end{center}
+\caption{Catches, landings and discards trends for Blue Whiting}
+\label{f:landings and discards for Blue Whiting}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Catch at age} 
+%------------------------------------------------------------
+Catch proportions at age are plotted in Figure ~\ref{f:catch at age Blue Whiting}. Strong year classes can be clearly differenciated in the early 1980s, 1990 and the late 1990s. Subsequently, over the recent period poor recruitment is clearly seen in the decreasing proportion of younger fish. Although this pattern apparently started to glimpse different in 2011 onwards, where stronger year classes can be recognised.
+
+Catch curves made on the basis of catch-at-age (~\ref{f:catch year classes Blue Whiting}) indicate a persistent drop in catch number by cohort for year classes since 1995. Then, 2012 shows a shift in this pattern. 
+
+\begin{figure}[hb]
+\begin{center}
+<<"WHB3", ref.label="MAC3",echo=FALSE,crop=TRUE >>=
+ @
+\end{center}
+\caption{Catch proportion at age for Blue Whiting.}
+\label{f:catch at age Blue Whiting}
+\end{figure}
+
+\begin{figure}[hb]
+\begin{center}
+<<"WHB4", ref.label="MAC4",echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 5.5 >>=
+ @
+\end{center}
+\caption{Age disaggregated catch (numbers) for Blue Whiting plotted on log scale. The labels behind each panel indicate year classes}
+\label{f:catch year classes Blue Whiting}
+\end{figure}
+
+The mean weight at age for the total catch used in the stock assessment is shown in Figure ~\ref{f:Weight at age Blue Whiting}. The period 1995-2005 presented a steady decreasing trend in mean weight. Compared to the 2007 mean weights, the overcoming years show an increase for most ages.
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Stock at age} 
+%------------------------------------------------------------
+The weight-at-age for the stock is assumed to be the same as the weight-at-age for the catch (Figure ~\ref{f:Weight at age Blue Whiting}). 
+
+\begin{figure}[hb]
+\begin{center}
+<<"WHB5",ref.label="HOM5",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Mean weight at age in the catch and in the stock(Kg) of Blue Whiting by year.}
+\label{f:Weight at age Blue Whiting}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Maturity}
+%------------------------------------------------------------
+The maturity at age is given in Figure ~\ref{f:Maturity Blue Whiting}. In 1994, the working group established fixed maturity data by consolidating the maturity ogives from both the northern and southern areas. Although slightly higher proportion mature for ages 2-6 recently shown by \citep{Heino2013}, have to be evaluated by the working group. 
+
+\begin{figure}[hb]
+\begin{center}
+<<"WHB7",ref.label="MAC7",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Maturity ogive for Blue Whiting.}
+\label{f:Maturity Blue Whiting}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Mortality}
+%------------------------------------------------------------
+Natural mortalities are fixed at 0.2, derived in the 1980s from age compositions before the industrial fishery started.
+
+%The mortality at age is given in Figure ~\ref{f:Mortality Blue Whiting}. 
+%\begin{figure}[hb]
+%\begin{center}
+%<<"WHB8",ref.label="MAC8",echo=FALSE,crop=TRUE>>=
+% @
+%\end{center}
+%\caption{Natural mortality for Blue Whiting.}
+%\label{f:Mortality Blue Whiting}
+%\end{figure}
+%\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Abundance indices}
+%------------------------------------------------------------
+The abundance indices for Blue whiting are given in Figure ~\ref{f:Abundance index Blue Whiting}. Every year, one survey has been performed since 2003 (International blue whiting spawning stock survey (IBWSS)). The whle data from this survey have been used in the assessment, excluding the year 2010 due to bad weather conditions. The survey data show a decline in the observed stock but an apparent recuperation is taking place since 2011. Although is believed by the working group that the gap in coverage from the survey had no doubt resulted in an underestimate of the stock. 
+
+\begin{figure}[hb]
+\begin{center}
+<<"WHB9",echo=FALSE,fig.width=8, fig.height=6.5>>=
+ggplot(data =idx[4:9,], aes(year, data)) + geom_point()+ geom_line()+ ylab("Abundance") + xlab("") + 
+  facet_grid(biomass~.) +geom_smooth() +theme(legend.position="none")
+# scales="free"
+# ggplot(data = index(idx), aes(year, data, group=biomass)) + geom_line(aes(colour=biomass)) + ylab("Abundance") + xlab("") + theme(legend.position="age")
+# ggplot(data = index(idx), aes(biomass, data, group=year)) + geom_line(aes(colour=year)) + ylab("Abundance") + xlab("") + theme(legend.position="age")
+#plot(idx)
+#ggplot(data=index(idx),aes(year,factor(biomass),size=data)) +geom_point(shape=21) +scale_size(range=c(1,15)) + ylab("age") + theme(legend.position="none")
+ @
+\end{center}
+\caption{Abundance indices for Blue Whiting.}
+\label{f:Abundance index Blue Whiting}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Stock Summary}
+%------------------------------------------------------------
+Results obtained by the working group of the Blue Whiting assessment are given in Figure ~\ref{f:stock output Blue Whiting}. Recruitment decreased substantially in the period 2000-2009 with a resulting strong decreasing SSB up to 2010. SSB has almost doubled from 2010 to 2013 and is estimated to be above Bpa. The fishing mortality show a decreasing trend since 2004, with a historical low F in 2011.
+
+\begin{figure}[h]
+\begin{center}
+<<"WHB10",echo=FALSE,message=FALSE, warning=FALSE,crop=TRUE,fig.width = 8, fig.height = 7.5>>=
+#out[1,c('2012')] <- 4307930
+rec<-out[1,]
+meanf<-out[10,]
+ssb<-out[7,]
+Totcat<-NA
+p1<-ggplot(data = rec, aes(year, data)) +  geom_line() + ylab("") + xlab("") +ggtitle("Recruitment (Age 1)")
+p2<-ggplot(data = meanf, aes(year, data)) + geom_line() + ylab("") + xlab("") +ggtitle("Fbar (Ages 3-7)")+
+  geom_hline(yintercept = 0.18,linetype = "dashed") + annotate("text", 1981, 0.14, label = "FMP",size = 3)
+p3<-ggplot(data = ssb, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("SSB")+
+  geom_hline(yintercept = 2250,linetype = "dashed") + annotate("text", 1985, 2500, label = "Bpa- MSY trigger",size = 3)+
+  geom_hline(yintercept = 1500,linetype = "dashed") + annotate("text", 1981, 1700, label = "Blim",size = 3)
+#p4<-ggplot(data = Totcat, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("Catch")
+
+multiplot(p1, p2, p3,  cols=2)
+@
+\end{center}
+\caption{llustration of stock trends in Blue Whiting from the update assessment. }
+\label{f:stock output Blue Whiting}
+\end{figure}
+\FloatBarrier
+
+\newpage
+%------------------------------------------------------------
+%------------------------------------------------------------
+\section{Megrim}
+%------------------------------------------------------------
+%------------------------------------------------------------
+Two megrim species can be found in the Northeastern Atlantic: megrim (\textit{Lepidorhombus whiffiagonis}) and four spot megrim (\textit{Lepidorhombus boscii}). Although for the latter one the absence on any data do not allow to evaluate its status. We will focus on the former one. Megrim is distributed in shelf areas throughout the North East Atlantic from Morocco and the Mediterranean Sea, to northern Norway. Since late 1970s, ICES splitted its population into three differents stocks for assessment and management purposes.
+
+Megrim as a flatfish, it is a demersal species that reaches a maximum age of 14-15 years ans presents a small-medium size (maximum of about 60cm). Spawning occurs between January and April, with spawning peaks in February and March. It is believed that megrim is not a highly migratory species, executing its movements on an aggregation and desegregation manner within the same area.  
+% In the main Celtic Sea and Bay of Biscay fishery megrim is caught in a mixed demersal fishery for anglerfish, hake and Nephrops, both as a targeted fishery and as a valuable bycatch. French trawlers operating in the Celtic Sea catch megrim as a bycatch. In Subarea VII otter trawlers account for the majority of the Spanish landings, and the remainder are taken in a mixed gill-net fishery. Most UK landings of
+% megrim are made by beam trawlers.
+The main characteristics of the Megrim stock and its working group are summarized in Table ~\ref{t:MEG SA}.
+
+\begin{table}[h] \centering 
+  \caption{Megrim Stock}
+      \label{t:MEG SA}
+\begin{tabular}{@{\extracolsep{5pt}} ll} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock name &  Megrim (MEG)\\ 
+ICES Areas &  VIIb-k and VIIIa,b,d\\ 
+Fleet Composition & otter and beam trawlers and gillnetters\\
+\hline \\[-1.8ex] 
+Assessment model(by WG) &  Statistical catch at age model accepted for trends\\
+Coordinated by & Ane Iriondo\\
+Last benchmark & 2012 (WKFLAT)\\
+Missing data & Discards estimated by model;\\
+& Lack of confidence in the data used\\
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table}
+
+<<"data3", echo=FALSE , results='hide'>>=
+#rm(list=ls())
+load("~/Documents/BoB/MSE/OM/data/Megrim/MEG.stock.RData")
+load("~/Documents/BoB/MSE/OM/data/Megrim/MEG.idx.RData")
+load("~/Documents/BoB/MSE/OM/data/Megrim/MEG.SAoutput.RData")
+stk<-MEG.stk
+idx<-MEG.idx
+out<- MEG.SA_Biomass
+@
+
+%------------------------------------------------------------
+\subsection{Catch trend}
+%------------------------------------------------------------
+The total catch trend as estimated by the Working Group is shown in Figure ~\ref{f:catch trend Megrim}. Since the begining of the historical data set, cathes of Megrim show a steady decreasing trend.
+
+\begin{figure}[h]
+\centering
+<<"MEG1", ref.label="MAC1",echo=FALSE,crop=TRUE>>=  
+@
+\caption{Catch trend for Megrim.}
+\label{f:catch trend Megrim}
+\end{figure}
+
+Cathes, landings and discards are presented in Figure~\ref{f:landings and discards for Megrim}. Discard data are not available by every country. Although there is information from discards sampling programs for some years and countries the discard derivation for subsequent years was considered unreliable by the working group. Then these derived data have not been used and  only the Spanish fleet data were used in the assessment for almost the entire data set. Consequently, this has driven to an artificial decrease in the amount of total discards. Until 1998, the discards trend showed an increasing trend. In 1998 the minimum lansing size (MLS) was reduced, causing a decrease in the discarding practices and an increase in landings. The larger number of small fish caught in 2002-2004 period (~\ref{f:catch at age Megrim}) with the combination of the MLS restriction, could be explained the last increasing trend that has been observed. Computing the landings and discards, some disimilarities have been found in the initail period of the catch data set used in the assessment.
+
+% A personal communication (Marina) clarified me, that derivations to convert fish length to fish age on landings and discards data, the working group did not consider the age 0 in the assessment, so some of these data had not used. Does this axplanation explain these small discrepancies that can be seen on the comparison between the computing the landings and discards data and the total catch from the working group assessment.
+
+<<"dataMEG", echo=FALSE,crop=TRUE>>=
+land <-FLQuant(dimnames = list(age = 'all', year = 1984:2005, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(landings(stk))
+land[, as.character(qq$year),1]<-as.matrix(qq[,7])
+
+disc <-FLQuant(dimnames = list(age = 'all', year = 1984:2005, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(discards(stk))
+disc[, as.character(qq$year),1]<-as.matrix(qq[,7])
+@
+
+\begin{figure}[hb]
+\centering
+<<"MEG2", ref.label= "MAC2", echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 4.5 >>=
+@
+\caption{Catches, Landings and discards trends for Megrim}
+\label{f:landings and discards for Megrim}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Catch at age} 
+%------------------------------------------------------------
+The catch proportion at age for Megrim is given in Figure ~\ref{f:catch at age Megrim}. Catches of Megrim show an slightly increase in 1992 with the appearance of the weak 1990-year-class. A clear selective exploitation of a narrow range of age can be discerned in ages between 3-5 years.  This pattern can be appreciated again in Figure ~\ref{f:catch year classes Megrim}, where the age 4 present a peak and a subsequent decreasing cohort with age can be seen along the years. From 2002 to 2004, age gropus above 6 have shown the minimum values ever registered. 
+
+\begin{figure}[hb]
+\begin{center}
+<<"MEG3", ref.label="MAC3",echo=FALSE,crop=TRUE >>=
+ @
+\end{center}
+\caption{Catch proportion at age for Megrim.}
+\label{f:catch at age Megrim}
+\end{figure}
+
+\begin{figure}[hb]
+\begin{center}
+<<"MEG4", ref.label="MAC4",echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 5.5 >>=
+ @
+\end{center}
+\caption{Age disaggregated catch (numbers) for Megrim plotted on log scale. The labels behind each panel indicate year classes}
+\label{f:catch year classes Megrim}
+\end{figure}
+
+The mean weight at age for the commercial catch used in the stock assessment is given in Figure ~\ref{f:Weight at age Megrim}. The younger ages show a slight stability along the years, while ages above 5 years experienced an increase until 1993. Afterwards, weights-at-age present a decreasing trend.
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Stock at age} 
+%------------------------------------------------------------
+The stock weights-at-age in the commercial catch an in the stock are considered the same (Figure ~\ref{f:Weight at age Megrim}). 
+
+\begin{figure}[hb]
+\begin{center}
+<<"MEG5",ref.label="HOM5",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Mean weight at age in the catch and in the stock (Kg) of Megrim by year.}
+\label{f:Weight at age Megrim}
+\end{figure}
+
+% \begin{figure}[hb]
+% \begin{center}
+% <<"MEG6", ref.label="HOM6",echo=FALSE >>=
+%  @
+% \end{center}
+% \caption{Mean weight at age in the stock (Kg) for Megrim.}
+% \label{f:stock at age Megrim}
+% \end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Maturity}
+%------------------------------------------------------------
+The maturity at age is shown in Figure ~\ref{f:Maturity Megrim}. The ogive data is obtained by macroscopy analyses of combined sexes.
+\begin{figure}[hb]
+\begin{center}
+<<"MEG7",ref.label="MAC7",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Maturity ogive for Megrim.}
+\label{f:Maturity Megrim}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Mortality}
+%------------------------------------------------------------
+A fixed mortality of 0.2 is used for all ages and years.
+
+%The mortality at age is given in Figure ~\ref{f:Mortality Megrim}. 
+%\begin{figure}[hb]
+%\begin{center}
+%<<"MEG8",ref.label="MAC8",echo=FALSE,crop=TRUE>>=
+% @
+%\end{center}
+%\caption{Natural mortality for Megrim.}
+%\label{f:Mortality Megrim}
+%\end{figure}
+%\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Abundance indices}
+%------------------------------------------------------------
+Indices from three surveys and CPUE from one French and three Spanish fleets were available. The abundance indices given in Figure ~\ref{f:Abundance index Megrim} show different patterns. The UK surveys present similar patterns for ages 2 and 3, whilst for age 2 FR-EVHOES present much higher values. FR-EVHOES and UK-WCGFS-D had been used by the working group to estimate the recruitment. The CPUE fleet disaggregated at age present some fluctuations for the SP-CANTAB7 timeseries up to 1999, whilst SP-VIGOTR7 and SP-CORUTR7 have remained relatively stable until 1990 and 1990 respectively. Afterwards, the first two fleets started to increase, while SP-CORUTR7 started decreasing.
+
+\begin{landscape}
+\begin{figure}[hbt]
+\begin{center}
+<<"MEG9",echo=FALSE, crop=TRUE,fig.width=14, fig.height=9>>=
+indic<- lapply(idx, function (x) index(x)/mean(index(x),na.rm=TRUE))
+
+names(indic)<-unlist(lapply(idx,name))
+ggplot(data =indic, aes(year, data)) + geom_point()+ geom_line()+ ylab("Abundance") + xlab("") + 
+  facet_grid(qname~age,scales = "free")+geom_smooth()+theme(legend.position="none")
+ @
+\end{center}
+\caption{Abundance indices for Megrim.}
+\label{f:Abundance index Megrim}
+\end{figure}
+\end{landscape}
+\FloatBarrier
+
+<<"MEG9a",echo=FALSE,crop=TRUE,include=FALSE, cache=FALSE,results='hide', message=FALSE, warning=FALSE>>=
+pdf("Megrimindices.pdf", width=4, height=4)
+n<-length(idx)
+par(mfrow = c(round(n+1/2),2))
+plot(idx)
+dev.off()
+@
+
+%------------------------------------------------------------
+\subsection{Stock Summary}
+%------------------------------------------------------------
+Results obtained by the working group of the Megrim assessment are given in Figure ~\ref{f:stock output Megrim}. Recruitment estimates have remained quite stable until 2001, except for the 2000 year. After then, the recruitment have increased until the major value reached ever. During the 2005, the estimates have returned to its normal value. SSB dropped to its lowest level in 1990–1991, coinciding with the highest level of fishing mortality, since then it has increased. After this mentioned peak, F has decreased in 2000 and then it has increased. In 2005 a sharp decrease is observed. 
+
+\begin{figure}[h]
+\begin{center}
+<<"MEG10",echo=FALSE,message=FALSE, warning=FALSE,crop=TRUE,fig.width = 8, fig.height = 7.5>>=
+#out[1,c('2012')] <- 4307930
+rec<-out[1,]
+meanf<-out[8,]
+ssb<-out[3,]
+Totcat<-out[4,]
+p1<-ggplot(data = rec, aes(year, data)) +  geom_line() + ylab("") + xlab("") +ggtitle("Recruitment (Age 1)")
+p2<-ggplot(data = meanf, aes(year, data)) + geom_line() + ylab("") + xlab("") +ggtitle("Fbar (Ages 3-6)")
+ # +geom_hline(yintercept = 0.18,linetype = "dashed") + annotate("text", 1981, 0.14, label = "FMP",size = 3)
+p3<-ggplot(data = ssb, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("SSB")
+  #+geom_hline(yintercept = 2250,linetype = "dashed") + annotate("text", 1985, 2500, label = "Bpa- MSY trigger",size = 3)+
+  #geom_hline(yintercept = 1500,linetype = "dashed") + annotate("text", 1981, 1700, label = "Blim",size = 3)
+p4<-ggplot(data = Totcat, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("Catch")
+
+multiplot(p1, p2, p3, p4, cols=2)
+@
+\end{center}
+\caption{llustration of stock trends in Megrim from the update assessment. }
+\label{f:stock output Megrim}
+\end{figure}
+\FloatBarrier
+
+\newpage
+%------------------------------------------------------------
+%------------------------------------------------------------
+\section{Anglerfish}
+%------------------------------------------------------------
+%------------------------------------------------------------
+Anglerfish concerns two different species: \textit{Lophius piscatorious} and \textit{Lophius budegassa}, both of them are considered as single stocks and are assessed separately. \textit{Lophius piscatorious} is a North Eastern Atlantic species, distributed from Norway to the Strait of Gibraltar, whilst \textit{Lophius budegassa} has a more southern distribution from the British islands and Ireland to Senegal. The stock boundaries for these species are uncertain; the current setup reflects only management units without biological criteria. Further, the ageing criteria are poorly defined. The TAC restriction is applied to both species together.
+Spawning of these species consist on eggs ejected in a buoyant, gelatinous ribbon. The success on this way of spawning and the subsequent recrutiment is highly affected by the ecosystem conditions. 
+
+Discards  are not included in the assessments, but there are indications for highgrading of \textit{Lophius budegassa}: the market price is lower than for \textit{Lophius piscatorious}, and \textit{Lophius budegassa} smaller than 30 cm is lacking in the catch data. This could, however, also be caused by poor sampling. 
+
+%------------------------------------------------------------
+\subsection{\textit{Lophius piscatorious}}
+%------------------------------------------------------------
+The main characteristics of the \textit{L. piscatorious} stock and its working group are summarized in Table ~\ref{t:MON SA}.
+
+%  model used by the working group
+\begin{table}[h] \centering 
+  \caption{\textit{L. piscatorious} Stock}
+      \label{t:MON SA}
+\begin{tabular}{@{\extracolsep{5pt}} ll} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock name &  Anglerfish (\textit{L. piscatorious})- MON\\ 
+ICES Areas &  VIIb-k and VIIIa,b,d\\ 
+Fleet Composition & Otter and beam trawlers and gillnetters\\
+\hline \\[-1.8ex] 
+Assessment model(by WG) &  XSA\\
+Coordinated by & I\~{n}aki Quincoces\\
+Last benchmark & updated 2006\\
+Missing data &  discards are not included\\
+&lack of age data for some lengths\\
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table}
+
+<<"data4", echo=FALSE , results='hide'>>=
+#rm(list=ls())
+load("~/Documents/BoB/MSE/OM/data/Piscatorious/MON.stock.RData")
+load("~/Documents/BoB/MSE/OM/data/Piscatorious/MON.idx.RData")
+load("~/Documents/BoB/MSE/OM/data/Piscatorious/MON.SAoutput.RData")
+stk<-MON.stk
+idx<-MON.idx
+out<- MON.SA_Biomass
+@
+
+%------------------------------------------------------------
+\subsubsection{Catch trend}
+%------------------------------------------------------------
+The total catch trend as estimated by the Working Group is corresponding to landings and it is shown in Figure ~\ref{f:catch trend Piscatorious}. From 1986 to 1992, the landings have steadily declined until the lowest value ever recorded. Then increased in 1996 and decreased again in 2000. The landings have increased since then reaching the maximum peak in 2004. It is believed that these landings could be underestimated due to French missing catch data.
+
+\begin{figure}[hbt]
+\centering
+<<"MON1", ref.label="MAC1",echo=FALSE,crop=TRUE>>=  
+@
+\caption{Catch trend for \textit{L. piscatorious}.}
+\label{f:catch trend Piscatorious}
+\end{figure}
+\FloatBarrier
+
+Landings are given in Figure~\ref{f:landings and discards for Piscatorious}. The quality of data used by the working group decreased for the last period. Discards  are not included in the assessment, although partial information on discards is available for several countries. Even though discards have not been computed, but they provide indication that discards could be high in some cases. The working group appreciated unavailable information on landings of smaller fish caused by the increasing discarding practices and an uncompensated increase in discards sampling. 
+
+<<"dataMON", echo=FALSE>>=
+land <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(landings(stk))
+land[, as.character(qq$year),1]<-as.matrix(qq[,7])
+
+disc <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(discards(stk))
+disc[, as.character(qq$year),1]<-as.matrix(qq[,7])
+@
+\begin{figure}[hbt]
+\centering
+<<"MON2", ref.label= "WHB2", echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 4.5 >>=
+@
+\caption{Catches, Landings and discards trends for \textit{L. piscatorious}}
+\label{f:landings and discards for Piscatorious}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsubsection{Catch at age} 
+%------------------------------------------------------------
+Landings at age are given in Figure ~\ref{f:catch at age Piscatorious}. A clear selective exploitation of anglerfish of ages from 3 to 7 years can be observed. In 1988,  1993 and 2002 higher amount of these ages were recorded. The age disaggregated landings figure (~\ref{f:catch year classes Piscatorious}) show a shift towards smaller individuals in 2002 and 2003, similar to that observed in 1993 and 1994, these cohorts are reaching larger ages in 2004 and 2005 landings.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MON3", ref.label="MAC3",echo=FALSE,crop=TRUE >>=
+ @
+\end{center}
+\caption{Catch proportion at age for \textit{L. piscatorious}.}
+\label{f:catch at age Piscatorious}
+\end{figure}
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MON4", ref.label="MAC4",echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 5.5 >>=
+ @
+\end{center}
+\caption{Age disaggregated catch (numbers) for \textit{L. piscatorious} plotted on log scale. The labels behind each panel indicate year classes}
+\label{f:catch year classes Piscatorious}
+\end{figure}
+
+The mean weights-at-age for the total catch used in the stock assessment are shown in Figure ~\ref{f:Weight at age Piscatorious}. Mean weights-at-age for ages below 3 years old present a stable value along the whole period. Whilst those weights for ages older than 3 present a decreasing trend with high variability on the oldest ages. These weights-at-age trends are indicating problems with age composition.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MON5",ref.label="HOM5",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Mean weight at age in the catch and in the stock (Kg) of \textit{L. piscatorious} by year.}
+\label{f:Weight at age Piscatorious}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsubsection{Stock at age} 
+%------------------------------------------------------------
+The stock weights-at-age are the same as the ones for the catch (Figure ~\ref{f:Weight at age Piscatorious}). 
+
+% \begin{figure}[hbt]
+% \begin{center}
+% <<"MON6", ref.label="HOM6",echo=FALSE >>=
+%  @
+% \end{center}
+% \caption{Mean weight at age in the stock (Kg) for Piscatorious.}
+% \label{f:stock at age Piscatorious}
+% \end{figure}
+
+%------------------------------------------------------------
+\subsubsection{Maturity}
+%------------------------------------------------------------
+The maturity at age is illustrated in Figure ~\ref{f:Maturity Piscatorious}. The maturity ogive data is obtained by analyses of combined sexes. The working group emphasized the necesity to realise growth validation studies in order to know if bias in the data are originated from ageing criteria changes or from natural events. 
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MON7",ref.label="MAC7",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Maturity ogive for \textit{L. piscatorious}.}
+\label{f:Maturity Piscatorious}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsubsection{Mortality}
+%------------------------------------------------------------
+Natural mortality at all ages and in all years was assumed to be equal to 0.15.
+
+%(Figure ~\ref{f:Mortality Piscatorious}). 
+%\begin{figure}[hbt]
+%\begin{center}
+%<<"MON8",ref.label="MAC8",echo=FALSE,crop=TRUE>>=
+% @
+%\end{center}
+%\caption{Natural mortality for Piscatorious.}
+%\label{f:Mortality Piscatorious}
+%\end{figure}
+
+%------------------------------------------------------------
+\subsubsection{Abundance indices}
+%------------------------------------------------------------
+All recruitment information is derived from only one survey (French EVHOE), although LPUE information was available for four different fleets. EVHOE shows the highest recruitment for individuals of 0 and 1 years in 2001 and 2004 respectively. In 2005 the index shows the second higher abundance index in weight. Relating the LPUE series, the indices show conflicting signals among them. The working group highlighted that might be caused by a change of target species in different fleets. 
+UNtil 1992, all the commercial LPUE series steadily decreased. Since then they have suffered an increase, except for the SP-CORUTR7 fleet for which LPUE has dicreased.
+% The abundance indices in Figure ~\ref{f:Abundance index Piscatorious}.
+
+\begin{landscape}
+\begin{figure}[hbt]
+\begin{center}
+<<"MON9",echo=FALSE, crop=TRUE,fig.width=14, fig.height=9>>=
+indic<- lapply(idx, function (x) index(x)/mean(index(x),na.rm=TRUE))
+
+names(indic)<-unlist(lapply(idx,name))
+ggplot(data =indic, aes(year, data)) + geom_point()+ geom_line()+ ylab("Abundance") + xlab("") + 
+  facet_grid(qname~age,scales = "free")+geom_smooth()+theme(legend.position="none")
+ @
+\end{center}
+\caption{Abundance indices for \textit{L. piscatorious}.}
+\label{f:Abundance index Piscatorious}
+\end{figure}
+\end{landscape}
+\FloatBarrier
+
+<<"MON9a",crop=TRUE,echo=FALSE,include=FALSE, cache=FALSE,results='hide', message=FALSE, warning=FALSE>>=
+pdf("Piscatoriousindices.pdf", width=4, height=4)
+n<-length(idx)
+par(mfrow = c(round(n+1/2),2))
+plot(idx)
+dev.off()
+@
+
+%------------------------------------------------------------
+\subsubsection{Stock Summary}
+%------------------------------------------------------------
+Results obtained by the working group of the \textit{L. piscatorious} assessment are given in Figure ~\ref{f:stock output Piscatorious}. Recruitment shows an oscillating pattern reaching its peak in the 1999-2001 period. The spawning stock biomass shows a decreasing trend until 1993, then started increasing. Comparing those both trends any clear relationship between them can be concluded. 
+The mean fishing mortality (Fbar 3-8) has declined oscillating over the whole period and remaining below Fpa (0.24) since 1998. 
+%SSB in 2006 is well above Bpa and is expected to remain around current level in the short term, assuming Fsq and constant exploitation pattern.
+
+%Several sources of uncertainty remain for this stock possibly causing the observed bias in F compositions and potential changes in ageing criteria over time. There are also some concerns about the accuracy of in the estimate of catch. This is due to under-reporting and discarding some fisheries. The species composition also has to be estimated in several countries by splitting the landings on the basis of market sampling and by estimating whole weight from fish landed with various different presentations (tailed, frozen, gutted, gutted liver in etc).One of the key features in the assessment is that the variability in year class estimates. There is no survey or fleets which give good estimates of early year classes for this stock.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"MON10",echo=FALSE,message=FALSE, warning=FALSE,crop=TRUE,fig.width = 8, fig.height = 7.5>>=
+rec<-out[1,]
+meanf<-out[6,]
+ssb<-out[3,]
+Totcat<-out[4,]
+p1<-ggplot(data = rec, aes(year, data)) +  geom_line() + ylab("") + xlab("") +ggtitle("Recruitment (Age 1)")
+p2<-ggplot(data = meanf, aes(year, data)) + geom_line() + ylab("") + xlab("") +ggtitle("Fbar (Ages 3-8)")+
+  geom_hline(yintercept = 0.24,linetype = "dashed") + annotate("text", 1983, 0.26, label = "Fpa",size = 3)+
+geom_hline(yintercept = 0.21,linetype = "dashed") + annotate("text", 1983, 0.23, label = "Fsq",size = 3)+
+ geom_hline(yintercept = 0.33,linetype = "dashed") + annotate("text", 1983, 0.35, label = "FMP",size = 3)
+p3<-ggplot(data = ssb, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("SSB")+
+  geom_hline(yintercept = 31000,linetype = "dashed") + annotate("text", 1983, 35000, label = "Bpa",size = 3)
+  #geom_hline(yintercept = 1500,linetype = "dashed") + annotate("text", 1981, 1700, label = "Blim",size = 3)
+p4<-ggplot(data = Totcat, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("Landings")
+
+multiplot(p1, p2, p3, p4, cols=2)
+@
+\end{center}
+\caption{Illustration of stock trends in \textit{L. piscatorious} from the update assessment. }
+\label{f:stock output Piscatorious}
+\end{figure}
+\FloatBarrier
+
+\newpage
+%------------------------------------------------------------
+\subsection{\textit{Lophius budegassa}}
+%------------------------------------------------------------
+The main characteristics of the \textit{L. budegassa} stock and its working group are summarized in Table ~\ref{t:ANK SA}.
+%  model used by the working group
+
+\begin{table}[h] \centering 
+  \caption{\textit{L. budegassa} Stock}
+      \label{t:ANK SA}
+\begin{tabular}{@{\extracolsep{5pt}} ll} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock name &  Anglerfish (\textit{L. budegassa})- ANK\\ 
+ICES Areas &  VIIb-k and VIIIa,b,d\\ 
+Fleet Composition & Otter and beam trawlers and gillnetters\\
+\hline \\[-1.8ex] 
+Assessment model(by WG) &  XSA\\
+Coordinated by & Lisa Readdy\\
+Last benchmark & updated 2006\\
+Missing data &  discards are not included\\
+&lack of age data for some lengths\\
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table}
+
+<<"data5", echo=FALSE , results='hide'>>=
+#rm(list=ls())
+load("~/Documents/BoB/MSE/OM/data/Budegassa/ANK.stock.RData")
+load("~/Documents/BoB/MSE/OM/data/Budegassa/ANK.idx.RData")
+load("~/Documents/BoB/MSE/OM/data/Budegassa/ANK.SAoutput.RData")
+stk<-ANK.stk
+idx<-ANK.idx
+out<- ANK.SA_Biomass
+@
+
+%------------------------------------------------------------
+\subsubsection{Catch trend}
+%------------------------------------------------------------
+The total landings trend as estimated by the Working Group is shown in Figure ~\ref{f:catch trend Budegassa}. As for \textit{L. piscatorius}, French data were not updated and landings are likely to be under-estimated for the year 2005. In general, landings present an important fluctation over the whole data set.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK1", ref.label="MAC1",echo=FALSE,crop=TRUE>>=  
+@
+\end{center}
+\caption{Catch trend for \textit{L. budegassa}.}
+\label{f:catch trend Budegassa}
+\end{figure}
+\FloatBarrier
+
+Landings are shown in Figure~\ref{f:landings and discards for Budegassa}. Partial information in discards was available for the working group, for several countries and units. Even though, they were not computed. As for \textit{L. piscatorius}, these data provided indication that could be high discard rates in some cases. Catches in our OM are set equal to landings.
+
+<<"dataANK", echo=FALSE>>=
+land <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(landings(stk))
+land[, as.character(qq$year),1]<-as.matrix(qq[,7])
+
+disc <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = 1, season = 'all', area = 'unique'),
+              quant = "age", units = 't')
+qq<-as.data.frame(discards(stk))
+disc[, as.character(qq$year),1]<-as.matrix(qq[,7])
+@
+
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK2", ref.label= "WHB2", echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 4.5 >>=
+@
+\end{center}
+\caption{Catches, Landings and discards trends for \textit{L. budegassa}}
+\label{f:landings and discards for Budegassa}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsubsection{Catch at age} 
+%------------------------------------------------------------
+The catch proportion at age for \textit{L. budegassa} is shown in Figure ~\ref{f:catch at age Budegassa}. The major proportion of the catch in numbers consists of 4-8 years old. There are not any clear year classes.
+Age disaggregated catch (numbers) for \textit{L. budegassa} is shown in Figure ~\ref{f:catch year classes Budegassa}. The number of younger fish (age 2-3) decreased in 1997 and were even lower in 1998. Catches at these ages have increased since 1999 to a peak in 2001 and decreased since then. However, the working group believe that the estimated catches of young individuals may be under estimated since 2003 due to increasing discarding practices at levels that could not be estimated by then.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK3", ref.label="MAC3",echo=FALSE,crop=TRUE >>=
+ @
+\end{center}
+\caption{Catch proportion at age for \textit{L. budegassa}.}
+\label{f:catch at age Budegassa}
+\end{figure}
+
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK4", ref.label="MAC4",echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 5.5 >>=
+ @
+\end{center}
+\caption{Age disaggregated catch (numbers) for \textit{L. budegassa} plotted on log scale. The labels behind each panel indicate year classes}
+\label{f:catch year classes Budegassa}
+\end{figure}
+
+The mean weight at age for the total catch used in the assessment is shown in Figure ~\ref{f:Weight at age Budegassa}. It shows an overall upward trend for most of the ages over the entire period. In the last year (2005) the mean weights for the younger ages show an unusual slight increase that could be related to the few readings availble for small fish. However the working group certified that this variability was to small to affect significantly the short term projection.
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsubsection{Stock at age} 
+%------------------------------------------------------------
+The stock weights-at-age for \textit{L. budegassa} are the same as the ones in the catch (Figure ~\ref{f:Weight at age Budegassa}). 
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK5",ref.label="HOM5",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Mean weight at age in the catch and in the stock (Kg) of \textit{L. budegassa} by year.}
+\label{f:Weight at age Budegassa}
+\end{figure}
+\FloatBarrier
+
+%\begin{figure}[hbt]
+%\begin{center}
+%<<"ANK6", ref.label="MAC6",echo=FALSE >>=
+% @
+%\end{center}
+%\caption{Mean weight at age in the stock (Kg) for Budegassa.}
+%\label{f:stock at age Budegassa}
+%\end{figure}
+
+%------------------------------------------------------------
+\subsubsection{Maturity}
+%------------------------------------------------------------
+The maturity-at-age, as used in the assessment, is presented in Figure ~\ref{f:Maturity Budegassa}. The same maturity at age is used for all years.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK7",ref.label="MAC7",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Maturity ogive for Budegassa.}
+\label{f:Maturity Budegassa}
+\end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsubsection{Mortality}
+%------------------------------------------------------------
+The natural mortality for L.Budegassa was set at 0.15 for all ages and years.
+
+%(Figure ~\ref{f:Mortality Budegassa}).
+%\begin{figure}[hbt]
+%\begin{center}
+%<<"ANK8",ref.label="MAC8",echo=FALSE,crop=TRUE>>=
+% @
+%\end{center}
+%\caption{Natural mortality for \textit{L. budegassa}.}
+%\label{f:Mortality Budegassa}
+%\end{figure}
+%\FloatBarrier
+
+%------------------------------------------------------------
+\subsubsection{Abundance indices}
+%------------------------------------------------------------
+Indices from one survey and LPUEs from 7 fleets were available.All recruitment information is derived from only one survey (French EVHOE). The survey and the fleets used in the assessment are given in Figure ~\ref{f:Abundance index Budegassa}. 
+Some conflicting signals are presented in the LPUE series. From 1993 to 2000 a general increasing pattern is observed along all fleets. Afterwards, all fluctuated with the exception for SP-VIGOTR7 and SP-BAKON7 which have significantly increased and decreased respectively.
+
+\begin{landscape}
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK9", ref.label="MON9",echo=FALSE, crop=TRUE,fig.width=14, fig.height=9>>=
+ @
+\end{center}
+\caption{Abundance indices for \textit{L. budegassa}.}
+\label{f:Abundance index Budegassa}
+\end{figure}
+\end{landscape}
+\FloatBarrier
+
+<<"ANK9a",echo=FALSE,include=FALSE, crop=TRUE,cache=FALSE,results='hide', message=FALSE, warning=FALSE>>=
+pdf("Budegassaindices.pdf", width=4, height=4)
+n<-length(idx)
+par(mfrow = c(round(n+1/2),2))
+plot(idx)
+dev.off()
+@
+
+%------------------------------------------------------------
+\subsection{Stock Summary}
+%------------------------------------------------------------
+Results obtained by the working group of the \textit{L. budegassa} assessment are given in Figure ~\ref{f:stock output Budegassa}.
+Recrutiment at age 2 shows an oscillating pattern reaching the maximum values in 1999 and 2004 and presenting the minimum recrutment in 2002. 
+The spawning stock biomass shows a decreasing trend until 1993, then started increasing with the exception in the year 1997 and 2000 where decreased again. The mean fishing mortality (Fbar 6-10) has oscillated over the whole period, showing a decreased pattern along the period. 
+
+\begin{figure}[hbt]
+\begin{center}
+<<"ANK10",echo=FALSE,message=FALSE, warning=FALSE,crop=TRUE,fig.width = 8, fig.height = 7.5>>=
+#out[1,c('2012')] <- 4307930
+rec<-out[1,]
+meanf<-out[6,]
+ssb<-out[3,]
+Totcat<-out[4,]
+p1<-ggplot(data = rec, aes(year, data)) +  geom_line() + ylab("") + xlab("") +ggtitle("Recruitment (Age 2)")
+p2<-ggplot(data = meanf, aes(year, data)) + geom_line() + ylab("") + xlab("") +ggtitle("Fbar (Ages 6-10)")
+ # +geom_hline(yintercept = 0.18,linetype = "dashed") + annotate("text", 1981, 0.14, label = "FMP",size = 3)
+p3<-ggplot(data = ssb, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("SSB")
+  #+geom_hline(yintercept = 2250,linetype = "dashed") + annotate("text", 1985, 2500, label = "Bpa- MSY trigger",size = 3)+
+  #geom_hline(yintercept = 1500,linetype = "dashed") + annotate("text", 1981, 1700, label = "Blim",size = 3)
+p4<-ggplot(data = Totcat, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("Landings")
+
+multiplot(p1, p2, p3, p4, cols=2)
+@
+\end{center}
+\caption{llustration of stock trends in \textit{L. budegassa} from the update assessment. }
+\label{f:stock output Budegassa}
+\end{figure}
+\FloatBarrier
+
+\newpage
+%------------------------------------------------------------
+%------------------------------------------------------------
+\section{Northern Hake}
+%------------------------------------------------------------
+%------------------------------------------------------------
+European Hake (\textit{Merluccius merluccius}) is distributed from Mauritania to Norway along the Northeast Atlantic shelf. The Cap Breton canyon seems to be the geographical boundary which limits any exchange between the northern and the southern hake populations. The northern stock spawn from Frebuary until June from the northern shelf of the Bay of Biscay to the southwest of Ireland, consisting in the two main major nursery areas.
+The minimum landing size for fish caught in the exploited areas for this stock is set at 27 cm total length with the exception in Division IIIa which is set in 30 cm. 
+The main characteristics of the Hake stock and its working group are summarized in Table ~\ref{t:HKE SA}.
+%  model used by the working group
+
+\begin{table}[h] \centering 
+  \caption{Hake Stock}
+      \label{t:HKE SA}
+\begin{tabular}{@{\extracolsep{5pt}} ll} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Stock name & Northern Stock of Hake (HKE) \\ 
+ICES Areas & IIIa, IV, VI, VII and VIIIa,b,d\\ 
+Fleet Composition & long-lines, gillnets, trawlers and others\\
+\hline \\[-1.8ex] 
+Assessment model(by WG) & SS3 \\
+Coordinated by & Dorleta Garc\'{i}a \\
+Last benchmark & 2013\\
+Missing data &  No\\
+\hline \\[-1.8ex] 
+\normalsize  
+\end{tabular} 
+\end{table}
+ 
+<<"data6", echo=FALSE , results='hide'>>=
+#rm(list=ls())
+load("~/Documents/BoB/MSE/OM/data/Hake/HKE.stock.RData")
+load("~/Documents/BoB/MSE/OM/data/Hake/HKE.idx.RData")
+load("~/Documents/BoB/MSE/OM/data/Hake/HKE.SAoutput.RData")
+stk<-HKE.stk
+idx<-HKE.idx
+out<-HKE.SA_Biomass
+@
+
+%------------------------------------------------------------
+\subsection{Catch trend}
+%------------------------------------------------------------
+The total catch trend for the northern hake stock is shown in Figure ~\ref{f:catch trend Hake}. In general, total catches show an increasing pattern, although from 1989 to 1998 they suffered a decrease. At the beginning of the period, an important amount of unallocated landings are included in the total catches, when the uncertainties in the fisheries were high. Since 2003, cathes have been increasing, reaching the highest value in 2012.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"HKE1", ref.label="MAC1",echo=FALSE,crop=TRUE>>=  
+@
+\end{center}
+\caption{Catch trend for Hake.}
+\label{f:catch trend Hake}
+\end{figure}
+\FloatBarrier
+
+Catches, landings and discards are shown in Figure~\ref{f:landings and discards for Hake}. Discard data have been available to the working group since 1999. Discard estimates have been increasing during the period, but also the CV of these estimates present a wide range, from 20\% to more than 100\%. Although more discard data have became available, the working group noticed that discards sampling do not cover all fleets contributing to the cathes of the stock. As the working group found unconsistent the reconstruction of historical discards, the assessments from 2003 to 2008 was based only on landings.
+
+ \begin{figure}[hbt]
+ \begin{center}
+ <<"HKE2",  echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 4.5 >>=
+ ggplot(data = FLQuants(Catches= catch(stk),Landings = landings(stk), Discards = discards(stk)), aes(year, data)) +facet_wrap(~qname)+ geom_smooth(method = "loess", size = 0.5)+ labs(x = "", y = "t") 
+ @
+ \end{center}
+ \caption{Catches, Landings and discards trends for Hake}
+ \label{f:landings and discards for Hake}
+ \end{figure}
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Catch at age} 
+%------------------------------------------------------------
+It is important to point out, that during the last decade the tagging effort has increased along different areas. In 2010, during an ICES workshop, experts confirmed that the ageing method used provides overestiamtion of age, thus an important growth underestimation. The accuracy ageing method has not been replaced, resulting on the use of a length-based stock assessment model by the working group.
+The catch proportion at age for Hake is shown in Figure ~\ref{f:catch at age Hake}. A clear selective exploitation of a narrow range of age can be discerned in ages between 0-3 years.  This pattern can be appreciated again in Figure ~\ref{f:catch year classes Hake}, where the age 1 present a peak and a subsequent decreasing cohort with age can be seen along the years. During the last 2 years, year classes below 5 years have shown higher catches. 
+
+\begin{figure}[hbt]
+\begin{center}
+<<"HKE3", echo=FALSE,crop=TRUE >>=
+ggplot(data=(catch.n(stk)%/%quantSums(catch.n(stk))),aes(year,factor(age),size=data)) +geom_point(shape=21) +scale_size(range=c(1,10)) + ylab("age") +xlab("")+ theme(legend.position="none") 
+@
+\end{center}
+\caption{Catch proportion at age for Hake.}
+\label{f:catch at age Hake}
+\end{figure}
+
+\begin{figure}[hbt]
+\begin{center}
+<<"HKE4",echo=FALSE,crop=TRUE,fig.width = 8, fig.height = 5.5 >>=
+ggplot(data =log(catch.n(stk)), aes(age, data)) + geom_line()+ xlab("age")+ ylab("log catch (numbers)")+facet_wrap(~year)  #+scale_x_continuous(breaks = round(0, 12, by = 2),1))
+ @
+\end{center}
+\caption{Age disaggregated catch (numbers) for Hake plotted on log scale. The labels behind each panel indicate year classes}
+\label{f:catch year classes Hake}
+\end{figure}
+
+The mean weight at age for the total catches used in the assessment is shown in Figure ~\ref{f:Weight at age Hake}. 
+\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Stock at age} 
+%------------------------------------------------------------
+The stock weights-at-age for Hake are the same as the ones in the catch (Figure ~\ref{f:Weight at age Hake}). The whole period present a steady increasing trend in mean weight. The ages range between 5-10 years are the ones which present the most noticeable increased pattern.Compared to the 2010 mean weights, the overcoming years show a decrease for younger ages.
+
+\begin{figure}[hbt]
+\begin{center}
+<<"HKE5",echo=FALSE,crop=TRUE>>=
+ggplot(data =catch.wt(stk), aes(year, data, group=age)) + geom_line(aes(colour=age))+ xlab("")+ ylab("W") + theme(legend.position="none") 
+ @
+\end{center}
+\caption{Mean weight at age in catches (Kg) of Hake by year.}
+\label{f:Weight at age Hake}
+\end{figure}
+\FloatBarrier
+
+% \begin{figure}[hbt]
+% \begin{center}
+% <<"HKE6", ref.label="MAC6",echo=FALSE >>=
+%  @
+% \end{center}
+% \caption{Mean weight at age in the stock (Kg) for Hake.}
+% \label{f:stock at age Hake}
+% \end{figure}
+
+%------------------------------------------------------------
+\subsection{Maturity}
+%------------------------------------------------------------
+The maturity-at-length has been converted to maturity-at-age using an age-length-key and it is presented in Figure ~\ref{f:Maturity Hake}. The ogive shows an important steep slope in the maturity. 
+
+\begin{figure}[hbt]
+\begin{center}
+<<"HKE7",ref.label="MAC7",echo=FALSE,crop=TRUE>>=
+ @
+\end{center}
+\caption{Maturity ogive for Hake.}
+\label{f:Maturity Hake}
+\end{figure}
+
+%------------------------------------------------------------
+\subsection{Mortality}
+%------------------------------------------------------------
+The natural mortality for Hake was set at 0.40 for all ages and years. There is not a direct a natural estimate of natural mortality. Until 2008, the working group was using a value of 0.2. Then, several studies provided evidence of growth underestimation due to age overestimation, concluding that that hake growths about two times faster than what it was thought.
+
+% (Figure ~\ref{f:Mortality Hake})
+%\begin{figure}[hbt]
+%\begin{center}
+%<<"HKE8",ref.label="MAC8",echo=FALSE,crop=TRUE>>=
+% @
+%\end{center}
+%\caption{Natural mortality for Hake.}
+%\label{f:Mortality Hake}
+%\end{figure}
+%\FloatBarrier
+
+%------------------------------------------------------------
+\subsection{Abundance indices}
+%------------------------------------------------------------
+The abundance indices are shown in Figure ~\ref{f:Abundance index Hake}. Four survey indices (EVHOE-WIBTS-Q4, SpPGFS-WIBTS-Q4, IGFS-WIBTS-Q4, and RESSGASC) give the relative abundance of hake. 
+Quarterly aggregated data for RESSGASC show a slightly decreasinf trend in abundance. The other 3 cruises were conducted during the fourth quarter of the year. IFGS and EVHOE follows similar increasing trends. While the PORCUPUINE survey (SpPGFS-WIBTS), although it presents an incresing trend, does not show as much fluctuation as the former ones. The latter reaches the highest abundance value in 2009 and afterwards starts to decrease.
+
+\begin{landscape}
+\begin{figure}[h]
+\begin{center}
+<<"HKE9", ref.label="MON9",echo=FALSE, crop=TRUE,fig.width=14, fig.height=9>>=
+
+ @
+ \end{center}
+ \caption{Abundance indices for Hake.}
+ \label{f:Abundance index Hake}
+ \end{figure}
+ \end{landscape}
+\FloatBarrier
+
+<<"HKE9a",echo=FALSE,include=FALSE,crop=TRUE, cache=FALSE,results='hide', message=FALSE, warning=FALSE>>=
+pdf("Hakeindices.pdf", width=4, height=4)
+n<-length(idx)
+par(mfrow = c(round(n+1/2),2))
+plot(idx)
+dev.off()
+@
+
+%------------------------------------------------------------
+\subsection{Stock Summary}
+%------------------------------------------------------------
+Results obtained by the working group of the Hake assessment are given in Figure ~\ref{f:stock output Hake}. 
+Recruitment shows a fluctuation pattern without any clear trend. During 2007, the recruitment showed an important increase, but since that it decreased sharply. SSB presents a steadly decreased until the late 90s. Since then, an important increase has lead to the highest value in 2010.
+The average fishing mortality F(15-80 cm), corresponding to ages 1-5, increased until the 90s. Afterwards, F has declined sharply. 
+
+\begin{figure}[hbt] 
+\begin{center}
+<<"HKE10",echo=FALSE,message=FALSE, warning=FALSE,crop=TRUE,fig.width = 8, fig.height = 7.5>>=
+#out[1,c('2012')] <- 4307930
+rec<-out[1,]
+meanf<-out[8,]
+ssb<-out[3,]
+Totcat<-out[6,]
+p1<-ggplot(data = rec, aes(year, data)) +  geom_line() + ylab("") + xlab("") +ggtitle("Recruitment (Age 0)")
+p2<-ggplot(data = meanf, aes(year, data)) + geom_line() + ylab("") + xlab("") +ggtitle("Fbar (15-80 cm)")+
+ geom_hline(yintercept = 0.35,linetype = "dashed") + annotate("text", 1980, 0.4, label = "Flim",size = 3)+
+geom_hline(yintercept = 0.25,linetype = "dashed") + annotate("text", 1980, 0.3, label = "Fpa",size = 3)
+p3<-ggplot(data = ssb, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("SSB") +
+  geom_hline(yintercept = 140000,linetype = "dashed") + annotate("text", 1980, 129000, label = "Bpa",size = 3)+
+  geom_hline(yintercept = 100000,linetype = "dashed") + annotate("text", 1980, 109000, label = "Blim",size = 3)
+p4<-ggplot(data = Totcat, aes(year, data))  +  geom_line() + ylab("") + xlab("") +ggtitle("Catch")
+
+multiplot(p1, p2, p3, p4, cols=2)
+@
+\end{center}
+\caption{llustration of stock trends in Hake from the update assessment. }
+\label{f:stock output Hake}
+\end{figure}
+\FloatBarrier
+
+% Type of assessment: update (stock benchmarked in 2010), stock on observation list. 
+% Working group report : WGHMM (ICES, 2013). This stock will be benchmarked in 2014. 
+% Data revisions: no data revision, data series extended back to 1978 
+% Assessment type : Length-based model (SS3). 
+% Input data : Commercial landings; ; Maturity data: constant maturity used (Martin, 1991); Natural mortality: constant value (0.4) used. 
+% Discards and bycatch : Partial discard estimates have been included in the assessment since 2003. 
+% SSB 140 000 t
+% F 0.5
+% Change TAX max 15%
+% Mean weight at length W(g)= 0.00513*L(cm)^3.074 (ICES, 1991)
+% Logistic maturity ogive L50= 42.85 slope=-0.2
+% Assume M 0.4 (constant for all age classes and years) until 2008 was 0.2
+% (see Table ~\ref{t:Stock data availability}). 
+
+ 
+%----------------------------------------------------------
+\chapter{Discards summary in the OM}
+%----------------------------------------------------------
+In order to be able to better assess the recruiting year classes in stocks, where discards make up an important part of catches, discards data from the actual sampling programmes should be made available to incorporate them in the OMs. However, the aim of this OMs is to represent the stocks reality as best with the available data from the latest assessments. In Table ~\ref{t:DISCARDS SA} the main annotations from discards data are presented.
+Thus, we will try to incorporate discard age disaggregated data and discard estimates for all stocks, but if not, we will assume these public data as the most representative one that we can gather. 
+
+\begin{landscape}
+\begin{table}[h] 
+ \caption{Discards data from the stock working groups}
+      \label{t:DISCARDS SA}
+\begin{tabular}{ p{1.5cm} p{7cm} p{14cm} }
+\hline 
+specie & Discards in the assessment & Relevant notes \\ \hline 
+MAC& Discards from some countries are computed & Discards in the assessment seemed to be a small ammount, although estimates for the unaccounted fishing mortality (part formed by discards) suggest that total catches could be between 1.6 and 3.4 times the actual catch. Discard-age-disaggregated data for the 2012 report indicated that discarded catch consisted in individuals below 6 years, and Spain and Portugal were discardind fish of ages 0 and 1. In general the discarded problem has been centred in small individuals. The discard levels are influences by the market price and by quotas.\\
+\\
+HOM & Available discards are not representative from the total fishery & Working group is allocating some extra catches to landings, which could refer to estimated discards.\\
+\\
+WHB & Discards are not included in the assessment and are assumed to be neligible & Discards of Blue whiting are considered to be small in the blue whiting directed fishery. The working group figured that discards are by-catch in fisheries not directed to blue whiting. Discard data are provided by the Netherlands to the working group. Blue whiting is also by catch in several Spanish bottom trawl mixed fisheries. However, the catch rates of blue whiting in these fisheries are low. French bottom trawl fisheries also catch blue whiting; discard estimates should become available to the working group.\\
+\\
+MEG & Discards were not available from every country & Discard deviation estimates by the working group were considered unreliable, then for almost the entire period Spanish fleet data were used. This fact drove to an artificial decrease in discard estimates with many concerns. The working group assessed that discards age disaggregated data in 2005 show a peak of individual of age 5. They pointed out that discards make up an important part of catches and these data should be available.\\
+\\
+MON and ANK & No discard data were used in the assessment & Discards were not computed in the assessment, although available data for the working group provide information about high discard ratios in some cases. In 2003, the working group noticed an increase in discarding preactices that have not been compensated with an increase in discards sampling. It is assumed that since 2003, catches of young individuals could be under estimated.\\
+\\
+HKE & Discards at age are available & Although more discard data have became available, the working group noticed that discards sampling do not cover all fleets contributing to the cathes of the stock. The stock assessment is based in 7 fleets and there is discards data for 4 of them.\\\hline 
+\end{tabular}
+%\end{adjustbox}
+\end{table} 
+\end{landscape}
+
+
+
+\newpage
+\bibliography{Mynewcollection}
+
+\newpage
+\chapter*{Acronyms}
+\begin{table}[h]  
+\begin{tabular}[0.95\textwidth]{@{\extracolsep{5pt}} llll} 
+BoB & Bay of Biscay & &\\
+CFP & Common Fisheries Policy  & &\\
+CPUE & Catch per Unit Effort  & &\\
+ICA & Integrated catch-at-age model  & &\\
+ICES & International Council Exploration Seas & &\\
+MSE & Management Strategy Evaluation  & &\\
+OBT & Basque otter trawl  & &\\
+OM & Operating Models  & &\\
+SAD & Linked Separable-ADAPT VPA model  & &\\
+SAM & Age-based analytical model  & &\\
+SS3 & Stock Synthesis model  & &\\
+TAC & Total Allowable Catch  & &\\
+VHVO & Very High Vertical Opening  & &\\
+XSA & Extended Survivors Analysis model & &\\
+\\
+\\
+SPECIES& & & \\
+ANK & \textit{Lophius budegassa} & MAC & \textit{Scomber scombrus} \\
+BIB & \textit{Trisopterus luscus} & MEG & \textit{Lepidorhombus whiffiagonis} \\
+COE & \textit{Conger conger} & MON & \textit{Lophius piscatorius} \\
+CTL & \textit{Sepiidae} & MUR & \textit{Mullus surmuletus}\\
+GAD & \textit{Trisopterus spp.} & RAY & \textit{Raja spp.} \\
+GUG & \textit{Eutrigla gurnardus} & SKA & \textit{Skate spp.}\\
+HKE & \textit{Merluccius merluccius} & SOL & \textit{Solea vulgaris}\\
+HMM & \textit{Trachurus mediterraneus} & SQZ & \textit{Loliginidae}\\
+HOM & \textit{Trachurus trachurus} & SYC & \textit{Scyliorhinus canicula}\\
+JEL & Jellyfish & WHB & \textit{Micromesistius poutassou}\\
+\normalsize 
+\end{tabular} 
+\end{table} 
+
+
+% ALV & Alopias vulpinus &NEP & Nephrops norvegicus \\
+% ANK & Lophius budegassa &OMZ & Ommastrephidae\\ 
+% ARY & Argentina sphyraena &PAC & Pagellus erythrinus\\ 
+% BIB & Trisopterus luscus &PLZ & Pleuronectidae\\ 
+% BLL & Scophthalmus rhombus &POK & Pollachius virens\\ 
+% BRF & Helicolenus dactylopterus &POL & Pollachius pollachius\\ 
+% BSH & Prionace glauca &POR & Lamna nasus\\ 
+% BSS & Dicentrarchus labrax &RJC & Raja clavata\\ 
+% CBC & Cepola rubescens &RJN & Leucoraja naevus\\ 
+% COE & Conger conger &RPG & Pagrus pagrus\\ 
+% CRE & Cancer pagurus &SBA & Pagellus acarne\\ 
+% CTL & Sepiidae &SBG & Sparus aurata\\ 
+% DEC & Dentex dentex &SBR & Pagellus bogaraveo\\ 
+% DGS & Squalus acanthias &SCS & Scorpaenidae\\ 
+% EOI & Eledone cirrhosa &SKA & Raja spp\\ 
+% GAD & Trisopterus spp &SKJ & Katsuwonus pelamis\\ 
+% GAG & Galeorhinus galeus &SMD & Mustelus mustelus\\ 
+% GFB & Phycis blennoides &SOL & Solea vulgaris\\ 
+% GUX & Triglidae &SOS & Pegusa lascaris\\ 
+% HAD & Melanogrammus aeglefinus &SQF & Loligo forbesi\\ 
+% HAL & Hippoglossus hippoglossus &SQR & Loligo vulgaris\\ 
+% HKE & Merluccius merluccius &SQZ & Loliginidae\\ 
+% HMM & Trachurus mediterraneus &SRG & Sparidae\\ 
+% HOM & Trachurus trachurus &SYC & Scyliorhinus canicula\\ 
+% JOD & Zeus faber &TRK & Triakidae\\ 
+% LDB & Lepidorhombus boscii &TUR & Psetta maxima\\ 
+% LEZ & Lepidorhombus spp &UCA & Umbrina canariensis\\ 
+% LIN & Molva molva &WEG & Trachinus draco\\ 
+% MAC & Scomber scombrus &WHB & Micromesistius poutassou\\ 
+% MAS & Scomber japonicus &WHG & Merlangius merlangus\\ 
+% MEG & Lepidorhombus whiffiagonis &WIT & Glyptocephalus cynoglossus\\ 
+% MGR & Argyrosomus regius &XXX & Marine animal\\ 
+% MON & Lophius piscatorius &YYY & Inorganic rests\\ 
+% MUL & Mugilidae \\ 
+% MUR & Mullus surmuletus \\ 
+
+
+\end{document}
+
