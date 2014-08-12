@@ -20,7 +20,7 @@
 library(FLCore)
 library(r4ss)
 library(plyr)
-library(reshape)
+library(reshape2)
 library(FLa4a)
 library(devtools)
 library(ggplotFL)
@@ -38,14 +38,14 @@ biomass<- read.table ("~/Documents/BoB/MSE/OM/data/Blue Whiting/Biomass.csv", he
 stknage<-read.table ("~/Documents/BoB/MSE/OM/data/Blue Whiting/Stock number.csv", header=T, dec=".", sep=";")
 
 # Create the FLQuant object
-WHB.stk <- FLQuant( dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+whb.stk <- FLQuant( dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
                 quant = "age")
 
 #We can now transform the FLQuant object into an FLStock object.
-WHB.stk <- FLStock(WHB.stk)
+whb.stk <- FLStock(whb.stk)
 
-#To see the elements of the object newly created you just have to type: # Name: WHB.stk <- "Blue Whiting"
-summary(WHB.stk)
+#To see the elements of the object newly created you just have to type: # Name: whb.stk <- "Blue Whiting"
+summary(whb.stk)
 
 
 
@@ -55,66 +55,66 @@ summary(WHB.stk)
 # Landings number at age
 Age <-c(1:10)
 Year <- as.numeric (sub("X", "", names(catnage[-c(1)])))
-flq <- FLQuant( dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+flq <- FLQuant( dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
                 quant = "age",  units = '10^6')
 flq[as.character(Age),as.character(Year)] <- as.matrix(catnage[,-c(1)])
-landings.n (WHB.stk)<-flq
+landings.n (whb.stk)<-flq
 
 # Landings mean weight at age
 Year <- as.numeric (sub("X", "", names(catwage[-c(1)])))
-flq<- FLQuant( dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+flq<- FLQuant( dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age", units = 'kg')
 flq[as.character(Age),as.character(Year)] <- as.matrix(catwage[,-c(1)])
-landings.wt(WHB.stk)<-flq
+landings.wt(whb.stk)<-flq
 
 # Total landings
 #landings.n<- window(landings.n, start=1982, end=2012)
-landings_intermediate <- landings.n (WHB.stk)* landings.wt(WHB.stk) 
-landings (WHB.stk)<- apply(landings_intermediate, 2, sum,na.rm=TRUE)
-units(landings (WHB.stk)) <- 'kgtn'
+landings_intermediate <- landings.n (whb.stk)* landings.wt(whb.stk) 
+landings (whb.stk)<- apply(landings_intermediate, 2, sum,na.rm=TRUE)
+units(landings (whb.stk)) <- 'kgt'
 
 # Total discards
-discards (WHB.stk)<- FLQuant(0, dimnames = list(age = 'all', year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), 
-                          quant = "age", units = 'kgtn')
+discards (whb.stk)<- FLQuant(0, dimnames = list(age = 'all', year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), 
+                          quant = "age", units = 'kgt')
 # Discards numbers at age
-discards.n (WHB.stk)<- FLQuant(0, dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+discards.n (whb.stk)<- FLQuant(0, dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
                             quant = "age", units = '10^6')
 # Discards weight at age
-discards.wt (WHB.stk)<- FLQuant(0, dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+discards.wt (whb.stk)<- FLQuant(0, dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
                              quant = "age", units = 'kg')
 
 # Catch number at age
-catch.n (WHB.stk)<-landings.n(WHB.stk) + discards.n(WHB.stk)
-units(catch.n (WHB.stk)) <- '10^6'
+catch.n (whb.stk)<-landings.n(whb.stk) + discards.n(whb.stk)
+units(catch.n (whb.stk)) <- '10^6'
 # Catch weight at age, have to calculate the weighted average of the landings weight and discards weight.
-catch.wt (WHB.stk)<- landings.wt (WHB.stk)
-units(catch.wt (WHB.stk)) <- 'kg'
+catch.wt (whb.stk)<- landings.wt (whb.stk)
+units(catch.wt (whb.stk)) <- 'kg'
 # Total catch
-catch (WHB.stk)<- apply((catch.n(WHB.stk)*catch.wt(WHB.stk)), 2, sum,na.rm=TRUE)
-units(catch (WHB.stk)) <- 'kgtn'
+catch (whb.stk)<- apply((catch.n(whb.stk)*catch.wt(whb.stk)), 2, sum,na.rm=TRUE)
+units(catch (whb.stk)) <- 'kgt'
 
 
 
 #Stock
 
 # Total stock
-stock(WHB.stk)<- FLQuant( dimnames = list(age = 'all', year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
-                        quant = "age", units = 'kgtn')
+stock(whb.stk)<- FLQuant( dimnames = list(age = 'all', year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+                        quant = "age", units = 'kgt')
 
 # Stock number at age (# STOCK ASSESSMENT OUTPUT FROM THE WORKING GROUP)
 Age<-c(1:10)
 Year <- as.numeric (sub("X", "", names(stknage[-c(1)])))
-flq <-FLQuant(dimnames = list(age = 0:10, year = 1981:2013, unit = 'unique', season = 'all', area = 'unique'),
+flq <-FLQuant(dimnames = list(age = 1:10, year = 1981:2013, unit = 'unique', season = 'all', area = 'unique'),
               quant = "age", units = '10^6')
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(stknage[1:10,-c(1)]))
-stock.n(WHB.stk)<-flq[,ac(1981:2012)]
+stock.n(whb.stk)<-flq[,ac(1981:2012)]
 
 # Stock weight at age
 Year <- as.numeric (sub("X", "", names(stkwage[-c(1)])))
-flq<- FLQuant( dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+flq<- FLQuant( dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age", units = 'kg')
 flq[as.character(Age),as.character(Year)] <- as.matrix(stkwage[,-c(1)])
-stock.wt (WHB.stk)<-flq
+stock.wt (whb.stk)<-flq
  
 
 #Natural mortality rate, natural mortality rate before spawning and maturity
@@ -123,15 +123,15 @@ stock.wt (WHB.stk)<-flq
 #Natural mortality before spawning is 0
 
 # Natural mortality rate
-m (WHB.stk)<- FLQuant(0.2, dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), quant = "age")
+m (whb.stk)<- FLQuant(0.2, dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), quant = "age")
 # Natural mortality rate before spawning
-m.spwn (WHB.stk)<- FLQuant(0,dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), quant = "age")
+m.spwn (whb.stk)<- FLQuant(0,dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), quant = "age")
 # Maturity
 Year <- as.numeric (sub("X", "", names(matu[-c(1)])))
-flq<- FLQuant( dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
+flq<- FLQuant( dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age")
-flq[as.character(matu$age),as.character(Year)] <- as.matrix(matu[,-c(1)])
-mat(WHB.stk)<-flq
+flq[as.character(matu$age)[2:11],as.character(Year)] <- as.matrix(matu[-c(1),-c(1)])
+mat(whb.stk)<-flq
 
 
 # Harvest rate and harvest rate before spawning 
@@ -145,54 +145,48 @@ mat(WHB.stk)<-flq
 #Fishing mortality 
 Age<-c(1:9)
 Year <- as.numeric (sub("X", "", names(fishmort[-c(1)])))
-flq <-FLQuant(dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), 
+flq <-FLQuant(dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'), 
               quant = "age", units="f")
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(fishmort[1:9,-c(1)]))
-harvest (WHB.stk)<-flq
+harvest (whb.stk)<-flq
 
 # Harvest rate before spawning
-harvest.spwn (WHB.stk) <- FLQuant(0, dimnames = list(age = 0:10, year = 1981:2012, unit = 'unique', season = 'all', 
-                                                     area = 'unique'), quant = "age",units="prop")
+harvest.spwn (whb.stk) <- FLQuant(0, dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', 
+                                                     area = 'unique'), quant = "age",units="NA")
+
+# Fully selected ages
+range(whb.stk,'minfbar')<-3 
+range(whb.stk,'maxfbar')<-7 
 
 
 # Control if everything has been filled properly
                                                                                                                        
-# We can now check that all slots of the FLStock object have been fille:  summary(WHB.stk)
+# We can now check that all slots of the FLStock object have been fille:  summary(whb.stk)
                                                                                                                         
-#  To check that “stock” is properly initialised, we can do it like this: catch(WHB.stk)                                                                                                                         
+#  To check that “stock” is properly initialised, we can do it like this: catch(whb.stk)                                                                                                                         
                                                                                                             
 # The last step in the source code saves the FLStock object into an Rdata file
 # which you can load when you start an R session using the “load” command.
                                                                                                                         
- save(WHB.stk,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/WHB.stock.RData")
-
-whb.om<-WHB.stk
-save(whb.om,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/whb.om.RData")
+ #save(whb.stk,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/whb.stk.RData")
 
 
-# Create the FLQuant object
-WHB.idx <- FLQuant( dimnames = list(age = 'all', year = 2004:2013, unit = 'unique', season = 'all', area = 'unique'),
-                 quant = "biomass")
-
-#We can now transform the FLQuant object into an FLIndex object.
-WHB.idx <- FLIndex(WHB.idx)
-summary(WHB.idx)
 
 
 # Stock composition from survey 2010 is not satisfactory, WG has excluded it (value= -1)
 
-#Index value
+#Index value, it is until 2013, so I remove the last year
 ind[ind==-1]<-NA 
 Age<-c(3:8)
-Year <- as.numeric (sub("X", "", names(ind[-c(1)])))
-flq <-FLQuant(dimnames = list(age = 0:10, year = 2004:2013, unit = 'unique', season = 'all', area = 'unique'), quant = "biomass")
-flq[as.character(Age),as.character(Year)] <- as.matrix(ind[,-c(1)])
-index(WHB.idx)<-flq
-#Index variance
-#flq[,as.character(Year)] <- as.matrix(indvar)
-#index.var(WHB.idx)<-flq
+Year <- as.numeric (sub("X", "", names(ind[-c(1,11)])))
+flq <-FLQuant(dimnames = list(age = 3:8, year = 2004:2012, unit = 'unique', season = 'all', area = 'unique'), quant = "age")
+flq[as.character(Age),as.character(Year)] <- as.matrix(ind[,-c(1,11)])
+whb.idx<-FLIndex(index=flq)
+range(whb.idx,'startf')<-0.25 #March
+range(whb.idx,'endf')<-0.33 #April
 
-save(WHB.idx,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/WHB.idx.RData")
+
+save(whb.stk,whb.idx,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/whb.RData")
 
 #----------------------------------------------------------
 ## STOCK ASSESSMENT OUTPUT FROM THE WORKING GROUP
@@ -200,22 +194,22 @@ save(WHB.idx,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/WHB.idx.RData")
 #Fishing mortality 
 Age<-c(1:9)
 Year <- as.numeric (sub("X", "", names(fishmort[-c(1)])))
-flq <-FLQuant(dimnames = list(age = 0:9, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'))
+flq <-FLQuant(dimnames = list(age = 1:10, year = 1981:2012, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(fishmort[1:9,-c(1)]))
-WHB.SA_f<-flq
+whb.SA_f<-flq
 
 #BIOMASS
 Param<-c('Recruits','RLow','RHigh','TSB ','TSBLow','TSBHigh','SSB ','SSBLow','SSBHigh', 'F(3-7)', 'F(3-7)Low', 'F(3-7)High')
 Year <- as.numeric (sub("X", "", names(biomass[-c(1)])))
 flq <-FLQuant(dimnames = list(Param, year = 1981:2013, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Param),as.character(Year)] <- as.numeric(as.matrix(biomass[1:12,-c(1)]))
-WHB.SA_Biomass<-flq
+whb.SA_Biomass<-flq
 
 #STOCK.N
 Age<-c(1:10)
 Year <- as.numeric (sub("X", "", names(stknage[-c(1)])))
-flq <-FLQuant(dimnames = list(age = 0:10, year = 1981:2013, unit = 'unique', season = 'all', area = 'unique'))
+flq <-FLQuant(dimnames = list(age = 1:10, year = 1981:2013, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(stknage[1:10,-c(1)]))
-WHB.SA_stock.n<-flq
+whb.SA_stock.n<-flq
 
-save(WHB.SA_f, WHB.SA_Biomass, WHB.SA_stock.n,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/WHB.SAoutput.RData")
+save(whb.SA_f, whb.SA_Biomass, whb.SA_stock.n,file="~/Documents/BoB/MSE/OM/data/Blue Whiting/whb.SAoutput.RData")

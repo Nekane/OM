@@ -1,6 +1,6 @@
 #----------------------------------------------------------
 #OPERATING MODEL
-#L.Budegassa (ANK)
+#L.Budegassa (ank)
 
 #Nekane Alzorriz
 #February 2014
@@ -28,14 +28,14 @@ biomass<- read.table ("~/Documents/BoB/MSE/OM/data/Budegassa/Biomass.csv", heade
 stknage<-read.table ("~/Documents/BoB/MSE/OM/data/Budegassa/Stock number.csv", header=T, dec=".", sep=";")
 
 # Create the FLQuant object
-ANK.stk <- FLQuant( dimnames = list(age = 0:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+ank.stk <- FLQuant( dimnames = list(age = 2:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                     quant = "age")
 
 #We can now transform the FLQuant object into an FLStock object.
-ANK.stk <- FLStock(ANK.stk)
+ank.stk <- FLStock(ank.stk)
 
-#To see the elements of the object newly created you just have to type: # Name: ANK.stk <- "ANK.stkrim"
-summary(ANK.stk)
+#To see the elements of the object newly created you just have to type: # Name: ank.stk <- "ank.stkrim"
+summary(ank.stk)
 
 
 #Filling of slots with data
@@ -43,21 +43,21 @@ summary(ANK.stk)
 # Catch numbers at age
 Age <-c(2:14)
 Year <- as.numeric (sub("X", "", names(catnage[-c(1)])))
-flq <- FLQuant( dimnames = list(age =0:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+flq <- FLQuant( dimnames = list(age =2:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                 quant = "age",  units = '10^3')
 flq[as.character(Age),as.character(Year)] <- as.matrix(catnage[1:13,-c(1)])
-catch.n (ANK.stk)<-flq
+catch.n (ank.stk)<-flq
 
 # Catch mean weight at age
 Year <- as.numeric (sub("X", "", names(catwage[-c(1)])))
-flq<- FLQuant( dimnames = list(age = 0:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+flq<- FLQuant( dimnames = list(age = 2:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age", units = 'kg')
 flq[as.character(Age),as.character(Year)] <- as.matrix(catwage[1:13,-c(1)])
-catch.wt(ANK.stk)<-flq
+catch.wt(ank.stk)<-flq
 
 # Total catches
 #landings.n<- window(landings.n, start=1982, end=2012)
-catch (ANK.stk)<- apply((catch.n(ANK.stk)*catch.wt(ANK.stk)), 2, sum,na.rm=TRUE)
+catch (ank.stk)<- apply((catch.n(ank.stk)*catch.wt(ank.stk)), 2, sum,na.rm=TRUE)
 
 
 # Total catches as found in the report
@@ -71,7 +71,7 @@ catch_report <- flq
 #where unit 1 is for the one computed
 flq <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = c(1,2), season = 'all', area = 'unique'),
               quant = "age", units = 't')
-qq<-as.data.frame(catch(ANK.stk))
+qq<-as.data.frame(catch(ank.stk))
 flq[, as.character(qq$year),1]<-as.matrix(qq[,7])
 #where unit 2 is for the one reported
 aa<-as.data.frame(catch_report)
@@ -80,23 +80,23 @@ catch_tot <- flq
 
 
 # Landings number at age
-landings.n (ANK.stk)<- NA
+landings.n (ank.stk)<- NA
 # Discards weight at age
-landings.wt (ANK.stk)<- NA
+landings.wt (ank.stk)<- NA
 # Discards numbers at age
-discards.n (ANK.stk)<- NA
+discards.n (ank.stk)<- NA
 # Discards weight at age
-discards.wt (ANK.stk)<- NA
+discards.wt (ank.stk)<- NA
 
 # Total landings
 Year <- as.numeric (sub("X", "", names(disc[-c(1)])))
 flq <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
               quant = "age", units = 't')
 flq[,as.character(Year)] <- as.matrix(disc[1,-c(1)])
-landings (ANK.stk)<- flq
+landings (ank.stk)<- flq
 
 # Total discards
-discards (ANK.stk)<-NA
+discards (ank.stk)<-NA
 
 #TAC
 
@@ -106,48 +106,52 @@ discards (ANK.stk)<-NA
 #Stock
 #----------------------------------------------------------
 # Stock number at age
-stock.n (ANK.stk)<- FLQuant( dimnames = list(age = 0:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+stock.n (ank.stk)<- FLQuant( dimnames = list(age = 2:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                              quant = "age", units = '10^3')
 
 # Stock weight at age, we assume the same weight as in the catch
-stock.wt (ANK.stk)<-catch.wt(ANK.stk)
+stock.wt (ank.stk)<-catch.wt(ank.stk)
 
 # Total stock
-stock (ANK.stk)<- FLQuant( dimnames = list(age = 0:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+stock (ank.stk)<- FLQuant( dimnames = list(age = 2:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                            quant = "age") 
 
 # Natural mortality rate: Natural mortality is 0.15
-m (ANK.stk)<- 0.15
-units(m(ANK.stk))<- 'm'
+m (ank.stk)<- 0.15
+units(m(ank.stk))<- 'm'
 
 # Natural mortality rate before spawning: Natural mortality before spawning is 0
-m.spwn (ANK.stk)<- 0
-units(m.spwn(ANK.stk))<- 'prop'
+m.spwn (ank.stk)<- 0
+units(m.spwn(ank.stk))<- 'NA'
 
 # Maturity
 Age <-c(1:14)
-flq<- FLQuant( dimnames = list(age = 0:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+flq<- FLQuant( dimnames = list(age = 2:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age")
 flq[as.character(Age),as.character(Year)] <- as.matrix(matu[,-c(1)])
-mat(ANK.stk)<-flq
+mat(ank.stk)<-flq
 
 
 # Harvest rate
-harvest (ANK.stk)<- 0
+harvest (ank.stk)<- 0
 # Harvest rate before spawning is 0 along the ages and years
-harvest.spwn (ANK.stk) <- 0
-units(harvest.spwn(ANK.stk))<- 'prop'
+harvest.spwn (ank.stk) <- 0
+units(harvest.spwn(ank.stk))<- 'NA'
+
+# Fully selected ages
+range(ank.stk,'minfbar')<-6 
+range(ank.stk,'maxfbar')<-10 
 
 # Control if everything has been filled properly
 
-# We can now check that all slots of the FLStock object have been fille:  summary(ANK.stk)
+# We can now check that all slots of the FLStock object have been fille:  summary(ank.stk)
 
-#  To check that “stock” is properly initialised, we can do it like this: catch(ANK.stk)                                                                                                                         
+#  To check that “stock” is properly initialised, we can do it like this: catch(ank.stk)                                                                                                                         
 
 # The last step in the source code saves the FLStock object into an Rdata file
 # which you can load when you start an R session using the “load” command.
 
-save(ANK.stk, catch_report, catch_tot,file="~/Documents/BoB/MSE/OM/data/Budegassa/ANK.stock.RData")
+save(ank.stk, catch_report, catch_tot,file="~/Documents/BoB/MSE/OM/data/Budegassa/ank.stock.RData")
 
 
 
@@ -229,9 +233,9 @@ flq <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = 'unique', se
 flq[,as.character(Year)] <- as.numeric(as.matrix(ind[99,2:14]))
 effort(idx6)<-flq
 
-ANK.idx<-FLIndices(ind1=idx1,ind2=idx2,ind3=idx3,ind4=idx4,ind5=idx5,ind6=idx6)
+ank.idx<-FLIndices(ind1=idx1,ind2=idx2,ind3=idx3,ind4=idx4,ind5=idx5,ind6=idx6)
 
-save(ANK.idx,file="~/Documents/BoB/MSE/OM/data/Budegassa/ANK.idx.RData")
+save(ank.stk,ank.idx,file="~/Documents/BoB/MSE/OM/data/Budegassa/ank.RData")
 
 # In the following lines of the data frame the TOTAL LPUE and effort data are available from all fleets
 # #7. Index value
@@ -261,21 +265,21 @@ Age<-c(2:14)
 Year <- as.numeric (sub("X", "", names(fishmort[2:21])))
 flq <-FLQuant(dimnames = list(age = 0:14, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(fishmort[1:13,2:21]))
-ANK.SA_f<-flq
+ank.SA_f<-flq
 
 #BIOMASS
 Param<-c('RECRUITSage2','TOTALBIO','TOTSPBIO','LANDINGS','YIELD/SSB', 'FBAR6-10')
 Year <- as.numeric (sub("X", "", names(biomass[2:21])))
 flq <-FLQuant(dimnames = list(Param, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Param),as.character(Year)] <- as.numeric(as.matrix(biomass[1:6,2:21]))
-ANK.SA_Biomass<-flq
+ank.SA_Biomass<-flq
 
 #STOCK.N
 Age<-c(2:14)
 Year <- as.numeric (sub("X", "", names(stknage[2:22])))
 flq <-FLQuant(dimnames = list(age = 0:14, year = 1986:2006, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(stknage[1:13,2:22]))
-ANK.SA_stock.n<-flq
+ank.SA_stock.n<-flq
 
 
-save(ANK.SA_f, ANK.SA_Biomass, ANK.SA_stock.n,file="~/Documents/BoB/MSE/OM/data/Budegassa/ANK.SAoutput.RData")
+save(ank.SA_f, ank.SA_Biomass, ank.SA_stock.n,file="~/Documents/BoB/MSE/OM/data/Budegassa/ank.SAoutput.RData")

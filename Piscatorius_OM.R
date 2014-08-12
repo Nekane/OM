@@ -1,6 +1,6 @@
 #----------------------------------------------------------
 #OPERATING MODEL
-#L.Piscatorius (MON)
+#L.Piscatorius (mon)
 
 #Nekane Alzorriz
 #February 2014
@@ -11,7 +11,7 @@
 library(FLCore)
 library(r4ss)
 library(plyr)
-library(reshape)
+library(reshape2)
 library(FLa4a)
 library(devtools)
 library(ggplotFL)
@@ -28,14 +28,14 @@ biomass<- read.table ("~/Documents/BoB/MSE/OM/data/Piscatorious/Biomass.csv", he
 stknage<-read.table ("~/Documents/BoB/MSE/OM/data/Piscatorious/Stock number.csv", header=T, dec=".", sep=";")
 
 # Create the FLQuant object
-MON.stk <- FLQuant( dimnames = list(age = 0:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+mon.stk <- FLQuant( dimnames = list(age = 1:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                     quant = "age")
 
 #We can now transform the FLQuant object into an FLStock object.
-MON.stk <- FLStock(MON.stk)
+mon.stk <- FLStock(mon.stk)
 
-#To see the elements of the object newly created you just have to type: # Name: MON.stk <- "MON.stkrim"
-summary(MON.stk)
+#To see the elements of the object newly created you just have to type: # Name: mon.stk <- "mon.stkrim"
+summary(mon.stk)
 
 
 #Filling of slots with data
@@ -43,19 +43,19 @@ summary(MON.stk)
 # Catch numbers at age
 Age <-c(1:13)
 Year <- as.numeric (sub("X", "", names(catnage[-c(1)])))
-flq <- FLQuant( dimnames = list(age =0:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),units = '10^3')
+flq <- FLQuant( dimnames = list(age =1:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),units = '10^3')
 flq[as.character(Age),as.character(Year)] <- as.matrix(catnage[1:13,-c(1)])
-catch.n (MON.stk)<-flq
+catch.n (mon.stk)<-flq
 
 # Catch mean weight at age
 Year <- as.numeric (sub("X", "", names(catwage[-c(1)])))
-flq<- FLQuant( dimnames = list(age = 0:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'), units = 'kg')
+flq<- FLQuant( dimnames = list(age = 1:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'), units = 'kg')
 flq[as.character(Age),as.character(Year)] <- as.matrix(catwage[1:13,-c(1)])
-catch.wt(MON.stk)<-flq
+catch.wt(mon.stk)<-flq
 
 # Total catches
 #landings.n<- window(landings.n, start=1982, end=2012)
-catch (MON.stk)<- apply((catch.n(MON.stk)*catch.wt(MON.stk)), 2, sum,na.rm=TRUE)
+catch (mon.stk)<- apply((catch.n(mon.stk)*catch.wt(mon.stk)), 2, sum,na.rm=TRUE)
 
 
 # Total catches as found in the report
@@ -69,7 +69,7 @@ catch_report <- flq
 #where unit 1 is for the one computed
 flq <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = c(1,2), season = 'all', area = 'unique'),
               quant = "age", units = 't')
-qq<-as.data.frame(catch(MON.stk))
+qq<-as.data.frame(catch(mon.stk))
 flq[, as.character(qq$year),1]<-as.matrix(qq[,7])
 #where unit 2 is for the one reported
 aa<-as.data.frame(catch_report)
@@ -78,23 +78,23 @@ catch_tot <- flq
 
 
 # Landings number at age
-landings.n (MON.stk)<- NA
+landings.n (mon.stk)<- NA
 # Discards weight at age
-landings.wt (MON.stk)<- NA
+landings.wt (mon.stk)<- NA
 # Discards numbers at age
-discards.n (MON.stk)<- NA
+discards.n (mon.stk)<- NA
 # Discards weight at age
-discards.wt (MON.stk)<- NA
+discards.wt (mon.stk)<- NA
 
 # Total landings
 Year <- as.numeric (sub("X", "", names(disc[-c(1)])))
 flq <-FLQuant(dimnames = list(age = 'all', year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
               quant = "age", units = 't')
 flq[,as.character(Year)] <- as.matrix(disc[1,-c(1)])
-landings (MON.stk)<- flq
+landings (mon.stk)<- flq
 
 # Total discards
-discards (MON.stk)<-NA
+discards (mon.stk)<-NA
 
 #TAC
 
@@ -104,46 +104,50 @@ discards (MON.stk)<-NA
 #Stock
 #----------------------------------------------------------
 # Stock number at age
-stock.n (MON.stk)<- FLQuant( dimnames = list(age = 0:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
+stock.n (mon.stk)<- FLQuant( dimnames = list(age = 1:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'),
                              units = '10^3')
 
 # Stock weight at age, we assume the same weight as in the catch
-stock.wt (MON.stk)<-catch.wt(MON.stk)
+stock.wt (mon.stk)<-catch.wt(mon.stk)
 
 # Total stock
-stock (MON.stk)<- FLQuant( dimnames = list(age = 0:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique')) 
+stock (mon.stk)<- FLQuant( dimnames = list(age = 1:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique')) 
 
 # Natural mortality rate: Natural mortality is 0.15
-m (MON.stk)<- 0.15
-units(m(MON.stk))<- 'm'
+m (mon.stk)<- 0.15
+units(m(mon.stk))<- 'm'
 
 # Natural mortality rate before spawning: Natural mortality before spawning is 0
-m.spwn (MON.stk)<- 0
-units(m.spwn(MON.stk))<- 'prop'
+m.spwn (mon.stk)<- 0
+units(m.spwn(mon.stk))<- 'NA'
 
 # Maturity
 Age <-c(1:13)
-flq<- FLQuant( dimnames = list(age = 0:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'))
+flq<- FLQuant( dimnames = list(age = 1:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Age),as.character(Year)] <- as.matrix(matu[,-c(1)])
-mat(MON.stk)<-flq
+mat(mon.stk)<-flq
 
 
 # Harvest rate
-harvest (MON.stk)<- 0
+harvest (mon.stk)<- 0
 # Harvest rate before spawning is 0 along the ages and years
-harvest.spwn (MON.stk) <- 0
-units(harvest.spwn(MON.stk))<- 'prop'
+harvest.spwn (mon.stk) <- 0
+units(harvest.spwn(mon.stk))<- 'NA'
 
-# Control if everything has been filled properly
+# Fully selected ages
+range(mon.stk,'minfbar')<-3 
+range(mon.stk,'maxfbar')<-8 
 
-# We can now check that all slots of the FLStock object have been fille:  summary(MON.stk)
+# Control if everything has been filled NAerly
 
-#  To check that “stock” is properly initialised, we can do it like this: catch(MON.stk)                                                                                                                         
+# We can now check that all slots of the FLStock object have been fille:  summary(mon.stk)
+
+#  To check that “stock” is NAerly initialised, we can do it like this: catch(mon.stk)                                                                                                                         
 
 # The last step in the source code saves the FLStock object into an Rdata file
 # which you can load when you start an R session using the “load” command.
 
-save(MON.stk, catch_report, catch_tot,file="~/Documents/BoB/MSE/OM/data/Piscatorious/MON.stock.RData")
+save(mon.stk, catch_report, catch_tot,file="~/Documents/BoB/MSE/OM/data/Piscatorious/mon.stock.RData")
 
 
 
@@ -216,9 +220,9 @@ range(idx5,'endf')<-1
 # effort(idx5)<-flq
 
 
-MON.idx<-FLIndices(ind1=idx1,ind2=idx2,ind3=idx3,ind4=idx4,ind5=idx5)
+mon.idx<-FLIndices(ind1=idx1,ind2=idx2,ind3=idx3,ind4=idx4,ind5=idx5)
 
-save(MON.idx,file="~/Documents/BoB/MSE/OM/data/Piscatorious/MON.idx.RData")
+save(mon.stk,mon.idx,file="~/Documents/BoB/MSE/OM/data/Piscatorious/mon.RData")
 
 # In the following lines of the data frame the TOTAL LPUE and effort data are available from all fleets
 
@@ -232,21 +236,21 @@ Age<-c(1:13)
 Year <- as.numeric (sub("X", "", names(fishmort[2:21])))
 flq <-FLQuant(dimnames = list(age = 0:13, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(fishmort[1:13,2:21]))
-MON.SA_f<-flq
+mon.SA_f<-flq
 
 #BIOMASS
 Param<-c('REC-age1','TOTALBIO','TOTSPBIO','LANDINGS','YIELD/SSB', 'FBAR3-8')
 Year <- as.numeric (sub("X", "", names(biomass[2:21])))
 flq <-FLQuant(dimnames = list(Param, year = 1986:2005, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Param),as.character(Year)] <- as.numeric(as.matrix(biomass[1:6,2:21]))
-MON.SA_Biomass<-flq
+mon.SA_Biomass<-flq
 
 #STOCK.N
 Age<-c(1:13)
 Year <- as.numeric (sub("X", "", names(stknage[2:22])))
 flq <-FLQuant(dimnames = list(age = 0:13, year = 1986:2006, unit = 'unique', season = 'all', area = 'unique'))
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(stknage[1:13,2:22]))
-MON.SA_stock.n<-flq
+mon.SA_stock.n<-flq
 
 
-save(MON.SA_f, MON.SA_Biomass, MON.SA_stock.n,file="~/Documents/BoB/MSE/OM/data/Piscatorious/MON.SAoutput.RData")
+save(mon.SA_f, mon.SA_Biomass, mon.SA_stock.n,file="~/Documents/BoB/MSE/OM/data/Piscatorious/mon.SAoutput.RData")

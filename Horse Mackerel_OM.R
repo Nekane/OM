@@ -11,7 +11,7 @@
 library(FLCore)
 library(r4ss)
 library(plyr)
-library(reshape)
+library(reshape2)
 library(FLa4a)
 library(devtools)
 library(ggplotFL)
@@ -30,14 +30,14 @@ stknage<-read.table ("~/Documents/BoB/MSE/OM/data/Horse Mackerel/Stock number.cs
 
 
 # Create the FLQuant object
-HOM.stk <- FLQuant( dimnames = list(age = 0:11, year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
+hom.stk <- FLQuant( dimnames = list(age = 0:11, year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
                 quant = "age")
 
 #We can now transform the FLQuant object into an FLStock object.
-HOM.stk <- FLStock(HOM.stk)
+hom.stk <- FLStock(hom.stk)
 
-#To see the elements of the object newly created you just have to type: # Name: HOM.stk <- "Horse Mackerel"
-summary(HOM.stk)
+#To see the elements of the object newly created you just have to type: # Name: hom.stk <- "Horse Mackerel"
+summary(hom.stk)
 
 
 
@@ -50,7 +50,7 @@ Year <- as.numeric (sub("X", "", names(catnage[-c(1)])))
 flq <- FLQuant( dimnames = list(age = 0:11, year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
                 quant = "age",  units = '10^3')
 flq[as.character(catnage$Age),as.character(Year)] <- as.matrix(catnage[,-c(1)])
-catch.n (HOM.stk)<-flq
+catch.n (hom.stk)<-flq
 
 # Catch mean weight at age
 # There is not data available in the stock, since we tried to gather it, I have used the 2012 mean weight for all years.
@@ -58,11 +58,11 @@ Year <- as.numeric (sub("X", "", names(catwage[-c(1)])))
 flq<- FLQuant( dimnames = list(age = 0:11, year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age", units = 'kg')
 flq[as.character(Age),as.character(Year)] <- as.matrix(catwage[,-c(1)])
-catch.wt(HOM.stk)<-flq
+catch.wt(hom.stk)<-flq
 
 # Total catches
 #landings.n<- window(landings.n, start=1982, end=2012)
-catch (HOM.stk)<- apply((catch.n(HOM.stk)*catch.wt(HOM.stk)), 2, sum,na.rm=TRUE)
+catch (hom.stk)<- apply((catch.n(hom.stk)*catch.wt(hom.stk)), 2, sum,na.rm=TRUE)
 
 # Total catches as found in the report
 Year <- as.numeric (sub("X", "", names(disc[-c(1)])))
@@ -75,7 +75,7 @@ catch_report <- flq
 #where unit 1 is for the one computed
 flq <-FLQuant(dimnames = list(age = 'all', year = 1982:2012, unit = c(1,2), season = 'all', area = 'unique'),
               quant = "age", units = 't')
-qq<-as.data.frame(catch(HOM.stk))
+qq<-as.data.frame(catch(hom.stk))
 flq[, as.character(qq$year),1]<-as.matrix(qq[,7])
 #where unit 2 is for the one reported
 aa<-as.data.frame(catch_report)
@@ -88,14 +88,14 @@ Year <- as.numeric (sub("X", "", names(disc[-c(1)])))
 flq <-FLQuant(dimnames = list(age = 'all', year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
               quant = "age", units = 't')
 flq[,as.character(Year)] <- as.matrix(disc[8,-c(1)])
-landings (HOM.stk)<- flq
+landings (hom.stk)<- flq
 
 # Total discards
 Year <- as.numeric (sub("X", "", names(disc[-c(1)])))
 flq <-FLQuant(dimnames = list(age = 'all', year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
               quant = "age", units = 't')
 flq[,as.character(Year)] <- as.matrix(disc[9,-c(1)])
-discards (HOM.stk)<-flq
+discards (hom.stk)<-flq
 
 #TAC
 # Year <- as.numeric (sub("X", "", names(disc[-c(1)])))
@@ -111,8 +111,8 @@ discards (HOM.stk)<-flq
 #Stock
 
 # Total stock
-stock(HOM.stk)<- FLQuant( dimnames = list(age = 'all', year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
-                        quant = "age", units = 'tonnes')
+stock(hom.stk)<- FLQuant( dimnames = list(age = 'all', year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
+                        quant = "age", units = 't')
 
 # Stock number at age (# STOCK ASSESSMENT OUTPUT FROM THE WORKING GROUP)
 # tha stock.n is until 2013, I remove the last year
@@ -121,14 +121,14 @@ Year <- as.numeric (sub("X", "", names(stknage[-c(1)])))
 flq <-FLQuant(dimnames = list(age = 0:11, year = 1982:2013, unit = 'unique', season = 'all', area = 'unique'),
               quant = "age", units = '10^3')
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(stknage[,-c(1)]))
-stock.n (HOM.stk)<-flq[,ac(1982:2012)]
+stock.n (hom.stk)<-flq[,ac(1982:2012)]
 
 # Stock weight at age
 Year <- as.numeric (sub("X", "", names(stkwage[-c(1)])))
 flq<- FLQuant( dimnames = list(age = 0:11, year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age", units = 'kilos')
 flq[as.character(Age),as.character(Year)] <- as.matrix(stkwage[,-c(1)])
-stock.wt (HOM.stk)<-flq
+stock.wt (hom.stk)<-flq
 
 
 #Natural mortality rate, natural mortality rate before spawning and maturity
@@ -137,19 +137,19 @@ stock.wt (HOM.stk)<-flq
 #Natural mortality before spawning is 0.45
 
 # Natural mortality rate
-m (HOM.stk)<- 0.15
-units(m(HOM.stk))<- 'm'  
+m (hom.stk)<- 0.15
+units(m(hom.stk))<- 'm'  
 
 # Natural mortality rate before spawning
-m.spwn (HOM.stk)<- 0.45
-units(m.spwn(HOM.stk))<- 'prop'
+m.spwn (hom.stk)<- 0.45
+units(m.spwn(hom.stk))<- 'NA'
 
 # Maturity
 Year <- as.numeric (sub("X", "", names(matu[-c(1)])))
 flq<- FLQuant( dimnames = list(age = 0:11, year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
                quant = "age")
 flq[as.character(Age),as.character(Year)] <- as.matrix(matu[,-c(1)])
-mat(HOM.stk)<-flq
+mat(hom.stk)<-flq
 
 
 # Harvest rate and harvest rate before spawning 
@@ -166,49 +166,46 @@ Year <- as.numeric (sub("X", "", names(fishmort[-c(1)])))
 flq <-FLQuant(dimnames = list(age = 0:11, year = 1982:2012, unit = 'unique', season = 'all', area = 'unique'),
               quant="age", units="f")
 flq[as.character(Age),as.character(Year)] <- as.numeric(as.matrix(fishmort[,-c(1)]))
-harvest (HOM.stk)<-flq
+harvest (hom.stk)<-flq
 
 # Harvest rate before spawning
-harvest.spwn (HOM.stk) <- 0.45
-units(harvest.spwn(HOM.stk))<- 'prop'
+harvest.spwn (hom.stk) <- 0.45
+units(harvest.spwn(hom.stk))<- 'NA'
+
+# Fully selected ages
+range(hom.stk,'minfbar')<-1 
+range(hom.stk,'maxfbar')<-10 
 
 # Control if everything has been filled properly
                                                                                                                        
-# We can now check that all slots of the FLStock object have been fille:  summary(HOM.stk)
+# We can now check that all slots of the FLStock object have been fille:  summary(hom.stk)
                                                                                                                         
-#  To check that “stock” is properly initialised, we can do it like this: catch(HOM.stk)                                                                                                                         
+#  To check that “stock” is properly initialised, we can do it like this: catch(hom.stk)                                                                                                                         
                                                                                                             
 # The last step in the source code saves the FLStock object into an Rdata file
 # which you can load when you start an R session using the “load” command.
                                                                                                                         
- save(HOM.stk,catch_report, catch_tot,file="~/Documents/BoB/MSE/OM/data/Horse Mackerel/HOM.stock.RData")
-hom.om<-HOM.stk
-catch(hom.om)<- catch_report
-save(hom.om,file="~/Documents/BoB/MSE/OM/data/Horse Mackerel/hom.om.RData")
+save(hom.stk,catch_report, catch_tot,file="~/Documents/BoB/MSE/OM/data/Horse Mackerel/HOM.stock.RData")
 
-# Create the FLQuant object
-HOM.idx <- FLQuant( dimnames = list(age = 'all', year = 1983:2013, unit = 'unique', season = 'all', area = 'unique'),
-                 quant = "biomass")
-
-#We can now transform the FLQuant object into an FLIndex object.
-HOM.idx <- FLIndex(HOM.idx)
-summary(HOM.idx)
 
 
 # Stock composition from survey 2010 is not satisfactory, WG has excluded it (value= -1)
 
 #Index value
 ind[ind==-1]<-NA 
-Year <- as.numeric (sub("X", "", names(ind[-c(1)])))
-flq <-FLQuant(dimnames = list(age = 'all', year = 1983:2013, unit = 'unique', season = 'all', area = 'unique'), quant = "biomass")
-flq[,as.character(Year)] <- as.matrix(ind[,-c(1)])
-index(HOM.idx)<-flq
-units(index(HOM.idx))<-'10^-12 eggs'
+Year <- as.numeric (sub("X", "", names(ind[-c(1,11)])))
+flq <-FLQuant(dimnames = list(age = 'all', year = 1983:2010, unit = 'unique', season = 'all', area = 'unique'), quant = "age")
+flq[,as.character(Year)] <- as.numeric(as.matrix(ind[1,-c(1,11)]))
+hom.idx<-FLIndex(index=flq)
+units(index(hom.idx))<-'10^-12 eggs'
+range(hom.idx,'startf')<-0.5 #
+range(hom.idx,'endf')<-0.5 #
+
 #Index variance
 #flq[,as.character(Year)] <- as.matrix(indvar)
-#index.var(HOM.idx)<-flq
+#index.var(hom.idx)<-flq
 
-save(HOM.idx,file="~/Documents/BoB/MSE/OM/data/Horse Mackerel/HOM.idx.RData")
+save(hom.stk,hom.idx,file="~/Documents/BoB/MSE/OM/data/Horse Mackerel/hom.RData")
 
 #----------------------------------------------------------
 ## STOCK ASSESSMENT OUTPUT FROM THE WORKING GROUP
